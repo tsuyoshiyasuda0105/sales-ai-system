@@ -53,6 +53,7 @@ type RakutenApiItem = {
 
 type RakutenApiResponse = {
   Items?: Array<{ Item?: RakutenApiItem } | RakutenApiItem>;
+  items?: Array<{ item?: RakutenApiItem } | RakutenApiItem>;
   count?: number;
   page?: number;
   first?: number;
@@ -60,6 +61,11 @@ type RakutenApiResponse = {
   hits?: number;
   carrier?: number;
   pageCount?: number;
+};
+
+type RakutenErrorResponse = {
+  error?: string;
+  error_description?: string;
 };
 
 export class RakutenApiError extends Error {
@@ -118,10 +124,13 @@ export async function searchRakutenItems(params: RakutenSearchParams) {
     next: { revalidate: 300 }
   });
 
-  const payload = (await response.json().catch(() => null)) as RakutenApiResponse | { error?: string } | null;
+  const payload = (await response.json().catch(() => null)) as RakutenApiResponse | RakutenErrorResponse | null;
 
   if (!response.ok) {
-    const message = payload && "error" in payload && payload.error ? payload.error : "Rakuten API request failed.";
+    const message =
+      payload && "error" in payload && payload.error
+        ? [payload.error, payload.error_description].filter(Boolean).join(": ")
+        : "Rakuten API request failed.";
     throw new RakutenApiError(message, response.status);
   }
 
@@ -134,11 +143,11 @@ export async function searchRakutenItems(params: RakutenSearchParams) {
     last: data.last ?? null,
     hits: data.hits ?? params.hits ?? 10,
     pageCount: data.pageCount ?? null,
-    items: normalizeRakutenItems(data.Items ?? [])
+    items: normalizeRakutenItems(data.Items ?? data.items ?? [])
   };
 }
 
-function normalizeRakutenItems(items: RakutenApiResponse["Items"]): NormalizedRakutenItem[] {
+function normalizeRakutenItems(items: RakutenApiResponse["Items"] | RakutenApiResponse["items"]): NormalizedRakutenItem[] {
   return (items ?? [])
     .map(unwrapRakutenItem)
     .filter(isValidRakutenItem)
@@ -161,9 +170,13 @@ function normalizeRakutenItems(items: RakutenApiResponse["Items"]): NormalizedRa
     }));
 }
 
-function unwrapRakutenItem(entry: { Item?: RakutenApiItem } | RakutenApiItem): RakutenApiItem | undefined {
+function unwrapRakutenItem(entry: { Item?: RakutenApiItem; item?: RakutenApiItem } | RakutenApiItem): RakutenApiItem | undefined {
   if ("Item" in entry) {
     return entry.Item;
+  }
+
+  if ("item" in entry) {
+    return entry.item;
   }
 
   return entry as RakutenApiItem;
