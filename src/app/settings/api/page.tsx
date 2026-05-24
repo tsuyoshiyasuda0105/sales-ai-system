@@ -1,4 +1,5 @@
 import { AppShell } from "@/components/app-shell";
+import { RakutenSearchPanel } from "@/components/rakuten-search-panel";
 import { apiConnections } from "@/lib/mock-data";
 
 function statusBadge(status: string) {
@@ -34,6 +35,10 @@ export default function ApiSettingsPage() {
             </div>
           </article>
         ))}
+      </div>
+
+      <div style={{ marginTop: "var(--sp-6)" }}>
+        <RakutenSearchPanel />
       </div>
     </AppShell>
   );
