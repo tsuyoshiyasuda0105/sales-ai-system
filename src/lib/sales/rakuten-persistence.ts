@@ -1,10 +1,11 @@
 import { prisma } from "@/lib/db";
 import type { NormalizedRakutenItem } from "@/lib/integrations/rakuten";
+import { estimateSourcingProfit, type TargetSalesChannel } from "@/lib/sales/profit";
 
 type SaveRakutenSearchOptions = {
   organizationId: string;
   keyword: string;
-  targetChannel?: "amazon_jp" | "mercari" | "yahoo_auction" | "yahoo_shopping" | "store";
+  targetChannel?: TargetSalesChannel;
   discoveredByUserId?: string;
 };
 
@@ -46,7 +47,10 @@ export async function saveRakutenSearchResults(
       sourcingCandidateId: candidate.id,
       itemCode: item.itemCode,
       itemName: item.itemName,
-      itemPrice: item.itemPrice
+      itemPrice: item.itemPrice,
+      targetExpectedPrice: decimalToNumber(candidate.target_expected_price_amount),
+      estimatedProfit: decimalToNumber(candidate.estimated_profit_amount),
+      estimatedRoi: decimalToNumber(candidate.estimated_roi)
     });
   }
 
@@ -122,6 +126,15 @@ async function upsertSourcingCandidate(
       deleted_at: null
     }
   });
+  const sourceShipping = item.postageFlag === 0 ? 0 : 0;
+  const sourcePointValue = calculatePointValue(item);
+  const targetChannel = options.targetChannel ?? "amazon_jp";
+  const estimate = estimateSourcingProfit({
+    sourcePrice: item.itemPrice,
+    sourceShipping,
+    sourcePointValue,
+    targetChannel
+  });
 
   const data = {
     product_id: productId,
@@ -129,11 +142,19 @@ async function upsertSourcingCandidate(
     source_title: item.itemName,
     source_condition: "new" as const,
     source_price_amount: item.itemPrice,
-    source_shipping_amount: item.postageFlag === 0 ? 0 : 0,
-    source_point_value_amount: calculatePointValue(item),
-    target_channel: options.targetChannel ?? "amazon_jp",
-    estimated_shipping_amount: 0,
-    estimated_packaging_amount: 0,
+    source_shipping_amount: sourceShipping,
+    source_point_value_amount: sourcePointValue,
+    target_channel: targetChannel,
+    target_expected_price_amount: estimate.expectedSellPrice,
+    estimated_platform_fee_amount: estimate.platformFee,
+    estimated_fba_fee_amount: estimate.fbaFee,
+    estimated_shipping_amount: estimate.shipping,
+    estimated_packaging_amount: estimate.packaging,
+    estimated_profit_amount: estimate.profit,
+    estimated_roi: estimate.roi,
+    estimated_profit_margin: estimate.profitMargin,
+    break_even_price_amount: estimate.breakEvenPrice,
+    recommended_max_purchase_quantity: estimate.recommendedMaxPurchaseQuantity,
     status: "watching" as const,
     raw_payload: item.raw as object,
     discovered_by_user_id: options.discoveredByUserId,
@@ -141,13 +162,17 @@ async function upsertSourcingCandidate(
   };
 
   if (existing) {
-    return prisma.sourcing_candidates.update({
+    const candidate = await prisma.sourcing_candidates.update({
       where: { id: existing.id },
       data
     });
+
+    await createAiScoreForCandidate(candidate.id, productId, options, estimate);
+
+    return candidate;
   }
 
-  return prisma.sourcing_candidates.create({
+  const candidate = await prisma.sourcing_candidates.create({
     data: {
       organization_id: options.organizationId,
       source_channel: "rakuten",
@@ -155,11 +180,54 @@ async function upsertSourcingCandidate(
       ...data
     }
   });
+
+  await createAiScoreForCandidate(candidate.id, productId, options, estimate);
+
+  return candidate;
+}
+
+async function createAiScoreForCandidate(
+  candidateId: string,
+  productId: string,
+  options: SaveRakutenSearchOptions,
+  estimate: ReturnType<typeof estimateSourcingProfit>
+) {
+  return prisma.ai_scores.create({
+    data: {
+      organization_id: options.organizationId,
+      sourcing_candidate_id: candidateId,
+      product_id: productId,
+      judgement: estimate.judgement,
+      total_score: estimate.totalScore,
+      profit_score: Math.min(100, Math.max(0, Math.round((estimate.profit / 3000) * 100))),
+      risk_score: estimate.roi < 0.1 ? 70 : 30,
+      recommended_action: estimate.recommendedMaxPurchaseQuantity > 0 ? "watch_or_buy" : "review",
+      recommended_quantity: estimate.recommendedMaxPurchaseQuantity,
+      reason_summary: estimate.reasonSummary,
+      risk_notes: estimate.riskNotes,
+      model_name: "rules-v1",
+      prompt_version: "profit-estimate-v1",
+      input_snapshot: {
+        source: "rakuten",
+        targetChannel: estimate.targetChannel
+      },
+      output_snapshot: estimate,
+      created_by_user_id: options.discoveredByUserId
+    }
+  });
 }
 
 function calculatePointValue(item: NormalizedRakutenItem) {
   const pointRate = item.pointRate ?? 1;
   return Math.floor((item.itemPrice * pointRate) / 100);
+}
+
+function decimalToNumber(value: { toNumber?: () => number } | number | null | undefined) {
+  if (value == null) return null;
+  if (typeof value === "number") return value;
+  if (typeof value.toNumber === "function") return value.toNumber();
+
+  return Number(value);
 }
 
 function normalizeTitle(value: string) {
