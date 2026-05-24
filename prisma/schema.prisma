@@ -1,0 +1,2467 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model accounting_accounts {
+  id                                                                                           String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organization_id                                                                              String               @db.Uuid
+  account_code                                                                                 String?
+  account_name                                                                                 String
+  tax_category                                                                                 String?
+  is_active                                                                                    Boolean              @default(true)
+  metadata                                                                                     Json                 @default("{}")
+  created_at                                                                                   DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at                                                                                   DateTime             @default(now()) @db.Timestamptz(6)
+  deleted_at                                                                                   DateTime?            @db.Timestamptz(6)
+  organizations                                                                                organizations        @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  accounting_entries_accounting_entries_credit_account_idToaccounting_accounts                 accounting_entries[] @relation("accounting_entries_credit_account_idToaccounting_accounts")
+  accounting_entries_accounting_entries_organization_id_credit_account_idToaccounting_accounts accounting_entries[] @relation("accounting_entries_organization_id_credit_account_idToaccounting_accounts")
+  accounting_entries_accounting_entries_debit_account_idToaccounting_accounts                  accounting_entries[] @relation("accounting_entries_debit_account_idToaccounting_accounts")
+  accounting_entries_accounting_entries_organization_id_debit_account_idToaccounting_accounts  accounting_entries[] @relation("accounting_entries_organization_id_debit_account_idToaccounting_accounts")
+
+  @@unique([organization_id, id], map: "accounting_accounts_org_id_unique")
+  @@unique([organization_id, account_name], map: "accounting_accounts_unique_name")
+  @@index([organization_id, is_active], map: "idx_accounting_accounts_active")
+  @@index([organization_id], map: "idx_accounting_accounts_org")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model accounting_entries {
+  id                                                                                            String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organization_id                                                                               String                      @db.Uuid
+  entry_type                                                                                    accounting_entry_type
+  status                                                                                        accounting_entry_status     @default(draft)
+  occurred_on                                                                                   DateTime                    @db.Date
+  description                                                                                   String
+  debit_account_id                                                                              String?                     @db.Uuid
+  credit_account_id                                                                             String?                     @db.Uuid
+  debit_account_name                                                                            String?
+  credit_account_name                                                                           String?
+  amount                                                                                        Decimal                     @db.Decimal(18, 2)
+  tax_amount                                                                                    Decimal                     @default(0) @db.Decimal(18, 2)
+  currency_code                                                                                 String                      @default("JPY") @db.Char(3)
+  tax_category                                                                                  String?
+  source_resource_type                                                                          String?
+  source_resource_id                                                                            String?                     @db.Uuid
+  order_id                                                                                      String?                     @db.Uuid
+  order_item_id                                                                                 String?                     @db.Uuid
+  purchase_order_id                                                                             String?                     @db.Uuid
+  purchase_order_item_id                                                                        String?                     @db.Uuid
+  inventory_item_id                                                                             String?                     @db.Uuid
+  fee_id                                                                                        String?                     @db.Uuid
+  shipment_id                                                                                   String?                     @db.Uuid
+  return_id                                                                                     String?                     @db.Uuid
+  receipt_id                                                                                    String?                     @db.Uuid
+  external_accounting_id                                                                        String?
+  exported_at                                                                                   DateTime?                   @db.Timestamptz(6)
+  synced_at                                                                                     DateTime?                   @db.Timestamptz(6)
+  error_message                                                                                 String?
+  metadata                                                                                      Json                        @default("{}")
+  created_by_job_run_id                                                                         String?                     @db.Uuid
+  created_by_user_id                                                                            String?                     @db.Uuid
+  created_at                                                                                    DateTime                    @default(now()) @db.Timestamptz(6)
+  updated_at                                                                                    DateTime                    @default(now()) @db.Timestamptz(6)
+  deleted_at                                                                                    DateTime?                   @db.Timestamptz(6)
+  users                                                                                         users?                      @relation(fields: [created_by_user_id], references: [id], onUpdate: NoAction)
+  accounting_accounts_accounting_entries_credit_account_idToaccounting_accounts                 accounting_accounts?        @relation("accounting_entries_credit_account_idToaccounting_accounts", fields: [credit_account_id], references: [id], onUpdate: NoAction)
+  accounting_accounts_accounting_entries_organization_id_credit_account_idToaccounting_accounts accounting_accounts?        @relation("accounting_entries_organization_id_credit_account_idToaccounting_accounts", fields: [organization_id, credit_account_id], references: [organization_id, id], onDelete: NoAction, onUpdate: NoAction, map: "accounting_entries_credit_account_same_org")
+  accounting_accounts_accounting_entries_debit_account_idToaccounting_accounts                  accounting_accounts?        @relation("accounting_entries_debit_account_idToaccounting_accounts", fields: [debit_account_id], references: [id], onUpdate: NoAction)
+  accounting_accounts_accounting_entries_organization_id_debit_account_idToaccounting_accounts  accounting_accounts?        @relation("accounting_entries_organization_id_debit_account_idToaccounting_accounts", fields: [organization_id, debit_account_id], references: [organization_id, id], onDelete: NoAction, onUpdate: NoAction, map: "accounting_entries_debit_account_same_org")
+  fees_accounting_entries_fee_idTofees                                                          fees?                       @relation("accounting_entries_fee_idTofees", fields: [fee_id], references: [id], onUpdate: NoAction)
+  fees_accounting_entries_organization_id_fee_idTofees                                          fees?                       @relation("accounting_entries_organization_id_fee_idTofees", fields: [organization_id, fee_id], references: [organization_id, id], onDelete: NoAction, onUpdate: NoAction, map: "accounting_entries_fee_same_org")
+  inventory_items_accounting_entries_inventory_item_idToinventory_items                         inventory_items?            @relation("accounting_entries_inventory_item_idToinventory_items", fields: [inventory_item_id], references: [id], onUpdate: NoAction)
+  inventory_items_accounting_entries_organization_id_inventory_item_idToinventory_items         inventory_items?            @relation("accounting_entries_organization_id_inventory_item_idToinventory_items", fields: [organization_id, inventory_item_id], references: [organization_id, id], onDelete: NoAction, onUpdate: NoAction, map: "accounting_entries_inventory_item_same_org")
+  job_runs                                                                                      job_runs?                   @relation(fields: [organization_id, created_by_job_run_id], references: [organization_id, id], onDelete: NoAction, onUpdate: NoAction, map: "accounting_entries_job_run_same_org")
+  orders_accounting_entries_order_idToorders                                                    orders?                     @relation("accounting_entries_order_idToorders", fields: [order_id], references: [id], onUpdate: NoAction)
+  order_items                                                                                   order_items?                @relation(fields: [order_item_id], references: [id], onUpdate: NoAction)
+  orders_accounting_entries_organization_id_order_idToorders                                    orders?                     @relation("accounting_entries_organization_id_order_idToorders", fields: [organization_id, order_id], references: [organization_id, id], onDelete: NoAction, onUpdate: NoAction, map: "accounting_entries_order_same_org")
+  organizations                                                                                 organizations               @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  purchase_orders                                                                               purchase_orders?            @relation(fields: [purchase_order_id], references: [id], onUpdate: NoAction)
+  purchase_order_items                                                                          purchase_order_items?       @relation(fields: [purchase_order_item_id], references: [id], onUpdate: NoAction)
+  receipts                                                                                      receipts?                   @relation(fields: [receipt_id], references: [id], onUpdate: NoAction)
+  returns                                                                                       returns?                    @relation(fields: [return_id], references: [id], onUpdate: NoAction)
+  shipments                                                                                     shipments?                  @relation(fields: [shipment_id], references: [id], onUpdate: NoAction)
+  accounting_export_entries                                                                     accounting_export_entries[]
+
+  @@unique([organization_id, id], map: "accounting_entries_org_id_unique")
+  @@index([inventory_item_id], map: "idx_accounting_entries_inventory")
+  @@index([organization_id, occurred_on(sort: Desc)], map: "idx_accounting_entries_occurred_on")
+  @@index([order_id], map: "idx_accounting_entries_order")
+  @@index([organization_id, status], map: "idx_accounting_entries_org_status")
+  @@index([purchase_order_id], map: "idx_accounting_entries_purchase")
+  @@index([source_resource_type, source_resource_id], map: "idx_accounting_entries_source")
+  @@index([organization_id, entry_type], map: "idx_accounting_entries_type")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model accounting_export_entries {
+  id                   String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organization_id      String             @db.Uuid
+  accounting_export_id String             @db.Uuid
+  accounting_entry_id  String             @db.Uuid
+  created_at           DateTime           @default(now()) @db.Timestamptz(6)
+  accounting_entries   accounting_entries @relation(fields: [accounting_entry_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  accounting_exports   accounting_exports @relation(fields: [accounting_export_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  organizations        organizations      @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([accounting_export_id, accounting_entry_id], map: "accounting_export_entries_unique")
+  @@index([accounting_entry_id], map: "idx_accounting_export_entries_entry")
+  @@index([accounting_export_id], map: "idx_accounting_export_entries_export")
+  @@index([organization_id], map: "idx_accounting_export_entries_org")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model accounting_exports {
+  id                        String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organization_id           String                      @db.Uuid
+  export_format             accounting_export_format
+  status                    accounting_export_status    @default(pending)
+  period_start              DateTime                    @db.Date
+  period_end                DateTime                    @db.Date
+  file_name                 String?
+  file_url                  String?
+  external_batch_id         String?
+  entry_count               Int                         @default(0)
+  total_amount              Decimal                     @default(0) @db.Decimal(18, 2)
+  requested_by_user_id      String?                     @db.Uuid
+  started_at                DateTime?                   @db.Timestamptz(6)
+  completed_at              DateTime?                   @db.Timestamptz(6)
+  failed_at                 DateTime?                   @db.Timestamptz(6)
+  error_message             String?
+  metadata                  Json                        @default("{}")
+  created_at                DateTime                    @default(now()) @db.Timestamptz(6)
+  updated_at                DateTime                    @default(now()) @db.Timestamptz(6)
+  deleted_at                DateTime?                   @db.Timestamptz(6)
+  accounting_export_entries accounting_export_entries[]
+  organizations             organizations               @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users                     users?                      @relation(fields: [requested_by_user_id], references: [id], onUpdate: NoAction)
+
+  @@unique([organization_id, id], map: "accounting_exports_org_id_unique")
+  @@index([organization_id, status], map: "idx_accounting_exports_org_status")
+  @@index([organization_id, period_start, period_end], map: "idx_accounting_exports_period")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ai_scores {
+  id                                                      String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organization_id                                         String               @db.Uuid
+  sourcing_candidate_id                                   String?              @db.Uuid
+  product_id                                              String?              @db.Uuid
+  judgement                                               ai_judgement         @default(unknown)
+  total_score                                             Decimal?             @db.Decimal(5, 2)
+  profit_score                                            Decimal?             @db.Decimal(5, 2)
+  demand_score                                            Decimal?             @db.Decimal(5, 2)
+  competition_score                                       Decimal?             @db.Decimal(5, 2)
+  turnover_score                                          Decimal?             @db.Decimal(5, 2)
+  risk_score                                              Decimal?             @db.Decimal(5, 2)
+  recommended_action                                      String?
+  recommended_quantity                                    Int?
+  reason_summary                                          String?
+  risk_notes                                              String?
+  model_name                                              String?
+  prompt_version                                          String?
+  input_snapshot                                          Json                 @default("{}")
+  output_snapshot                                         Json                 @default("{}")
+  created_by_job_run_id                                   String?              @db.Uuid
+  created_by_user_id                                      String?              @db.Uuid
+  created_at                                              DateTime             @default(now()) @db.Timestamptz(6)
+  users                                                   users?               @relation(fields: [created_by_user_id], references: [id], onUpdate: NoAction)
+  job_runs                                                job_runs?            @relation(fields: [organization_id, created_by_job_run_id], references: [organization_id, id], onDelete: NoAction, onUpdate: NoAction, map: "ai_scores_job_run_same_org")
+  organizations                                           organizations        @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products_ai_scores_product_idToproducts                 products?            @relation("ai_scores_product_idToproducts", fields: [product_id], references: [id], onUpdate: NoAction)
+  products_ai_scores_organization_id_product_idToproducts products?            @relation("ai_scores_organization_id_product_idToproducts", fields: [organization_id, product_id], references: [organization_id, id], onDelete: NoAction, onUpdate: NoAction, map: "ai_scores_product_same_org")
+  sourcing_candidates                                     sourcing_candidates? @relation(fields: [sourcing_candidate_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([sourcing_candidate_id], map: "idx_ai_scores_candidate")
+  @@index([organization_id, created_at(sort: Desc)], map: "idx_ai_scores_created_at")
+  @@index([organization_id, judgement], map: "idx_ai_scores_judgement")
+  @@index([organization_id], map: "idx_ai_scores_org")
+  @@index([product_id], map: "idx_ai_scores_product")
+  @@index([organization_id, total_score(sort: Desc)], map: "idx_ai_scores_total_score")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model alert_deliveries {
+  id                      String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organization_id         String                 @db.Uuid
+  alert_id                String                 @db.Uuid
+  notification_channel_id String?                @db.Uuid
+  job_run_id              String?                @db.Uuid
+  status                  alert_delivery_status  @default(pending)
+  severity                alert_severity
+  dedupe_key              String?
+  title                   String
+  message                 String
+  payload                 Json                   @default("{}")
+  attempt_count           Int                    @default(0)
+  max_attempts            Int                    @default(3)
+  scheduled_at            DateTime               @default(now()) @db.Timestamptz(6)
+  sent_at                 DateTime?              @db.Timestamptz(6)
+  failed_at               DateTime?              @db.Timestamptz(6)
+  skipped_at              DateTime?              @db.Timestamptz(6)
+  failure_reason          String?
+  external_delivery_id    String?
+  created_at              DateTime               @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime               @default(now()) @db.Timestamptz(6)
+  deleted_at              DateTime?              @db.Timestamptz(6)
+  alerts                  alerts                 @relation(fields: [alert_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  job_runs                job_runs?              @relation(fields: [job_run_id], references: [id], onUpdate: NoAction)
+  notification_channels   notification_channels? @relation(fields: [notification_channel_id], references: [id], onUpdate: NoAction)
+  organizations           organizations          @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([alert_id], map: "idx_alert_deliveries_alert")
+  @@index([notification_channel_id], map: "idx_alert_deliveries_channel")
+  @@index([organization_id, dedupe_key], map: "idx_alert_deliveries_dedupe_key")
+  @@index([deleted_at], map: "idx_alert_deliveries_deleted_at")
+  @@index([job_run_id], map: "idx_alert_deliveries_job_run")
+  @@index([organization_id, status], map: "idx_alert_deliveries_org_status")
+  @@index([organization_id, scheduled_at], map: "idx_alert_deliveries_scheduled_at")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model alerts {
+  id                                     String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organization_id                        String             @db.Uuid
+  name                                   String
+  description                            String?
+  severity                               alert_severity     @default(warning)
+  status                                 alert_status       @default(active)
+  source_type                            String
+  source_resource_id                     String?            @db.Uuid
+  condition_type                         String
+  condition_config                       Json               @default("{}")
+  dedupe_key                             String?
+  threshold_value                        Decimal?           @db.Decimal(18, 6)
+  evaluation_window_seconds              Int?
+  cooldown_seconds                       Int                @default(3600)
+  last_evaluated_at                      DateTime?          @db.Timestamptz(6)
+  last_triggered_at                      DateTime?          @db.Timestamptz(6)
+  last_resolved_at                       DateTime?          @db.Timestamptz(6)
+  muted_until                            DateTime?          @db.Timestamptz(6)
+  created_by_user_id                     String?            @db.Uuid
+  updated_by_user_id                     String?            @db.Uuid
+  metadata                               Json               @default("{}")
+  created_at                             DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at                             DateTime           @default(now()) @db.Timestamptz(6)
+  deleted_at                             DateTime?          @db.Timestamptz(6)
+  alert_deliveries                       alert_deliveries[]
+  users_alerts_created_by_user_idTousers users?             @relation("alerts_created_by_user_idTousers", fields: [created_by_user_id], references: [id], onUpdate: NoAction)
+  organizations                          organizations      @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_alerts_updated_by_user_idTousers users?             @relation("alerts_updated_by_user_idTousers", fields: [updated_by_user_id], references: [id], onUpdate: NoAction)
+
+  @@unique([organization_id, id], map: "alerts_org_id_unique")
+  @@unique([organization_id, name], map: "alerts_unique_name")
+  @@index([organization_id, dedupe_key], map: "idx_alerts_dedupe_key")
+  @@index([deleted_at], map: "idx_alerts_deleted_at")
+  @@index([organization_id, last_triggered_at(sort: Desc)], map: "idx_alerts_last_triggered_at")
+  @@index([organization_id, status], map: "idx_alerts_org_status")
+  @@index([organization_id, severity], map: "idx_alerts_severity")
+  @@index([source_type, source_resource_id], map: "idx_alerts_source")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model api_credential_access_logs {
+  id                                                                                            String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organization_id                                                                               String           @db.Uuid
+  api_credential_id                                                                             String?          @db.Uuid
+  user_id                                                                                       String?          @db.Uuid
+  job_run_id                                                                                    String?          @db.Uuid
+  action                                                                                        String
+  provider                                                                                      api_provider?
+  success                                                                                       Boolean
+  failure_reason                                                                                String?
+  ip_address                                                                                    String?          @db.Inet
+  user_agent                                                                                    String?
+  created_at                                                                                    DateTime         @default(now()) @db.Timestamptz(6)
+  api_credentials_api_credential_access_logs_api_credential_idToapi_credentials                 api_credentials? @relation("api_credential_access_logs_api_credential_idToapi_credentials", fields: [api_credential_id], references: [id], onUpdate: NoAction)
+  api_credentials_api_credential_access_logs_organization_id_api_credential_idToapi_credentials api_credentials? @relation("api_credential_access_logs_organization_id_api_credential_idToapi_credentials", fields: [organization_id, api_credential_id], references: [organization_id, id], onDelete: NoAction, onUpdate: NoAction, map: "api_credential_access_logs_credential_same_org")
+  job_runs                                                                                      job_runs?        @relation(fields: [organization_id, job_run_id], references: [organization_id, id], onDelete: NoAction, onUpdate: NoAction, map: "api_credential_access_logs_job_run_same_org")
+  organizations                                                                                 organizations    @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users                                                                                         users?           @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+
+  @@index([created_at], map: "idx_api_credential_access_logs_created_at")
+  @@index([api_credential_id], map: "idx_api_credential_access_logs_credential")
+  @@index([organization_id], map: "idx_api_credential_access_logs_org")
+  @@index([user_id], map: "idx_api_credential_access_logs_user")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model api_credentials {
+  id                                                                                                       String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organization_id                                                                                          String                       @db.Uuid
+  provider                                                                                                 api_provider
+  display_name                                                                                             String?
+  status                                                                                                   api_credential_status        @default(active)
+  encryption_provider                                                                                      encryption_provider          @default(aws_kms)
+  kms_key_id                                                                                               String
+  encrypted_data_key                                                                                       Bytes?
+  encryption_context                                                                                       Json                         @default("{}")
+  encryption_algorithm                                                                                     String                       @default("AES-256-GCM")
+  encrypted_access_token                                                                                   Bytes?
+  encrypted_refresh_token                                                                                  Bytes?
+  encrypted_api_key                                                                                        Bytes?
+  encrypted_api_secret                                                                                     Bytes?
+  scopes                                                                                                   String[]                     @default([])
+  external_account_id                                                                                      String?
+  external_account_name                                                                                    String?
+  expires_at                                                                                               DateTime?                    @db.Timestamptz(6)
+  last_verified_at                                                                                         DateTime?                    @db.Timestamptz(6)
+  last_error_code                                                                                          String?
+  last_error_message                                                                                       String?
+  created_by_user_id                                                                                       String?                      @db.Uuid
+  updated_by_user_id                                                                                       String?                      @db.Uuid
+  created_at                                                                                               DateTime                     @default(now()) @db.Timestamptz(6)
+  updated_at                                                                                               DateTime                     @default(now()) @db.Timestamptz(6)
+  deleted_at                                                                                               DateTime?                    @db.Timestamptz(6)
+  api_credential_access_logs_api_credential_access_logs_api_credential_idToapi_credentials                 api_credential_access_logs[] @relation("api_credential_access_logs_api_credential_idToapi_credentials")
+  api_credential_access_logs_api_credential_access_logs_organization_id_api_credential_idToapi_credentials api_credential_access_logs[] @relation("api_credential_access_logs_organization_id_api_credential_idToapi_credentials")
+  users_api_credentials_created_by_user_idTousers                                                          users?                       @relation("api_credentials_created_by_user_idTousers", fields: [created_by_user_id], references: [id], onUpdate: NoAction)
+  organizations                                                                                            organizations                @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_api_credentials_updated_by_user_idTousers                                                          users?                       @relation("api_credentials_updated_by_user_idTousers", fields: [updated_by_user_id], references: [id], onUpdate: NoAction)
+  channels                                                                                                 channels[]
+
+  @@unique([organization_id, id], map: "api_credentials_org_id_unique")
+  @@unique([organization_id, provider, external_account_id], map: "api_credentials_unique_provider_account")
+  @@index([deleted_at], map: "idx_api_credentials_deleted_at")
+  @@index([expires_at], map: "idx_api_credentials_expires_at")
+  @@index([organization_id], map: "idx_api_credentials_org")
+  @@index([organization_id, provider], map: "idx_api_credentials_provider")
+  @@index([organization_id, status], map: "idx_api_credentials_status")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model audit_logs {
+  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organization_id String?           @db.Uuid
+  user_id         String?           @db.Uuid
+  action          audit_action_type
+  resource_type   String
+  resource_id     String?           @db.Uuid
+  summary         String?
+  before_data     Json?
+  after_data      Json?
+  metadata        Json              @default("{}")
+  ip_address      String?           @db.Inet
+  user_agent      String?
+  created_at      DateTime          @default(now()) @db.Timestamptz(6)
+  organizations   organizations?    @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users           users?            @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+
+  @@index([action], map: "idx_audit_logs_action")
+  @@index([created_at], map: "idx_audit_logs_created_at")
+  @@index([organization_id], map: "idx_audit_logs_org")
+  @@index([resource_type, resource_id], map: "idx_audit_logs_resource")
+  @@index([user_id], map: "idx_audit_logs_user")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model billing_invoice_items {
+  id                      String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organization_id         String                    @db.Uuid
+  billing_invoice_id      String                    @db.Uuid
+  billing_subscription_id String?                   @db.Uuid
+  billing_usage_limit_id  String?                   @db.Uuid
+  item_type               billing_invoice_item_type @default(subscription)
+  description             String
+  quantity                Decimal                   @default(1) @db.Decimal(18, 6)
+  unit_amount             Decimal                   @default(0) @db.Decimal(18, 6)
+  amount                  Decimal                   @db.Decimal(18, 2)
+  currency_code           String                    @default("JPY") @db.Char(3)
+  period_start            DateTime?                 @db.Timestamptz(6)
+  period_end              DateTime?                 @db.Timestamptz(6)
+  source_resource_type    String?
+  source_resource_id      String?                   @db.Uuid
+  metadata                Json                      @default("{}")
+  created_at              DateTime                  @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime                  @default(now()) @db.Timestamptz(6)
+  deleted_at              DateTime?                 @db.Timestamptz(6)
+  billing_invoices        billing_invoices          @relation(fields: [billing_invoice_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  billing_subscriptions   billing_subscriptions?    @relation(fields: [billing_subscription_id], references: [id], onUpdate: NoAction)
+  billing_usage_limits    billing_usage_limits?     @relation(fields: [billing_usage_limit_id], references: [id], onUpdate: NoAction)
+  organizations           organizations             @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([deleted_at], map: "idx_billing_invoice_items_deleted_at")
+  @@index([billing_invoice_id], map: "idx_billing_invoice_items_invoice")
+  @@index([organization_id], map: "idx_billing_invoice_items_org")
+  @@index([source_resource_type, source_resource_id], map: "idx_billing_invoice_items_source")
+  @@index([billing_subscription_id], map: "idx_billing_invoice_items_subscription")
+  @@index([billing_usage_limit_id], map: "idx_billing_invoice_items_usage_limit")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model billing_invoices {
+  id                      String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organization_id         String                  @db.Uuid
+  billing_subscription_id String?                 @db.Uuid
+  invoice_number          String
+  status                  billing_invoice_status  @default(draft)
+  external_invoice_id     String?
+  period_start            DateTime?               @db.Timestamptz(6)
+  period_end              DateTime?               @db.Timestamptz(6)
+  issued_at               DateTime?               @db.Timestamptz(6)
+  due_at                  DateTime?               @db.Timestamptz(6)
+  paid_at                 DateTime?               @db.Timestamptz(6)
+  voided_at               DateTime?               @db.Timestamptz(6)
+  subtotal_amount         Decimal                 @default(0) @db.Decimal(18, 2)
+  tax_amount              Decimal                 @default(0) @db.Decimal(18, 2)
+  discount_amount         Decimal                 @default(0) @db.Decimal(18, 2)
+  total_amount            Decimal                 @default(0) @db.Decimal(18, 2)
+  amount_paid             Decimal                 @default(0) @db.Decimal(18, 2)
+  amount_due              Decimal                 @default(0) @db.Decimal(18, 2)
+  currency_code           String                  @default("JPY") @db.Char(3)
+  hosted_invoice_url      String?
+  invoice_pdf_url         String?
+  metadata                Json                    @default("{}")
+  created_at              DateTime                @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime                @default(now()) @db.Timestamptz(6)
+  deleted_at              DateTime?               @db.Timestamptz(6)
+  billing_invoice_items   billing_invoice_items[]
+  billing_subscriptions   billing_subscriptions?  @relation(fields: [billing_subscription_id], references: [id], onUpdate: NoAction)
+  organizations           organizations           @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([organization_id, id], map: "billing_invoices_org_id_unique")
+  @@unique([organization_id, external_invoice_id], map: "billing_invoices_unique_external")
+  @@unique([organization_id, invoice_number], map: "billing_invoices_unique_number")
+  @@index([deleted_at], map: "idx_billing_invoices_deleted_at")
+  @@index([organization_id, due_at], map: "idx_billing_invoices_due_at")
+  @@index([organization_id, issued_at(sort: Desc)], map: "idx_billing_invoices_issued_at")
+  @@index([organization_id, status], map: "idx_billing_invoices_org_status")
+  @@index([billing_subscription_id], map: "idx_billing_invoices_subscription")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model billing_plans {
+  id                    String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organization_id       String                  @db.Uuid
+  plan_code             String
+  name                  String
+  description           String?
+  status                billing_plan_status     @default(active)
+  billing_interval      billing_interval        @default(monthly)
+  price_amount          Decimal                 @default(0) @db.Decimal(18, 2)
+  currency_code         String                  @default("JPY") @db.Char(3)
+  trial_days            Int                     @default(0)
+  external_product_id   String?
+  external_price_id     String?
+  features              Json                    @default("{}")
+  metadata              Json                    @default("{}")
+  created_at            DateTime                @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime                @default(now()) @db.Timestamptz(6)
+  deleted_at            DateTime?               @db.Timestamptz(6)
+  organizations         organizations           @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  billing_subscriptions billing_subscriptions[]
+  billing_usage_limits  billing_usage_limits[]
+
+  @@unique([organization_id, plan_code], map: "billing_plans_unique_code")
+  @@index([deleted_at], map: "idx_billing_plans_deleted_at")
+  @@index([organization_id, billing_interval], map: "idx_billing_plans_interval")
+  @@index([organization_id, status], map: "idx_billing_plans_org_status")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model billing_subscriptions {
+  id                       String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organization_id          String                      @db.Uuid
+  billing_plan_id          String?                     @db.Uuid
+  status                   billing_subscription_status @default(trialing)
+  external_customer_id     String?
+  external_subscription_id String?
+  current_period_start     DateTime?                   @db.Timestamptz(6)
+  current_period_end       DateTime?                   @db.Timestamptz(6)
+  trial_start              DateTime?                   @db.Timestamptz(6)
+  trial_end                DateTime?                   @db.Timestamptz(6)
+  cancel_at_period_end     Boolean                     @default(false)
+  canceled_at              DateTime?                   @db.Timestamptz(6)
+  paused_at                DateTime?                   @db.Timestamptz(6)
+  seats                    Int                         @default(1)
+  unit_amount              Decimal                     @default(0) @db.Decimal(18, 2)
+  currency_code            String                      @default("JPY") @db.Char(3)
+  metadata                 Json                        @default("{}")
+  created_at               DateTime                    @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime                    @default(now()) @db.Timestamptz(6)
+  deleted_at               DateTime?                   @db.Timestamptz(6)
+  billing_invoice_items    billing_invoice_items[]
+  billing_invoices         billing_invoices[]
+  billing_plans            billing_plans?              @relation(fields: [billing_plan_id], references: [id], onUpdate: NoAction)
+  organizations            organizations               @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  billing_usage_limits     billing_usage_limits[]
+
+  @@unique([organization_id, id], map: "billing_subscriptions_org_id_unique")
+  @@unique([organization_id, external_subscription_id], map: "billing_subscriptions_unique_external")
+  @@index([organization_id, current_period_start, current_period_end], map: "idx_billing_subscriptions_current_period")
+  @@index([deleted_at], map: "idx_billing_subscriptions_deleted_at")
+  @@index([organization_id, status], map: "idx_billing_subscriptions_org_status")
+  @@index([billing_plan_id], map: "idx_billing_subscriptions_plan")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model billing_usage_limits {
+  id                      String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organization_id         String                     @db.Uuid
+  billing_plan_id         String?                    @db.Uuid
+  billing_subscription_id String?                    @db.Uuid
+  limit_key               String
+  limit_name              String
+  scope                   billing_usage_limit_scope  @default(organization)
+  period                  billing_usage_limit_period @default(monthly)
+  unit                    String                     @default("count")
+  limit_quantity          Decimal                    @db.Decimal(18, 6)
+  used_quantity           Decimal                    @default(0) @db.Decimal(18, 6)
+  reserved_quantity       Decimal                    @default(0) @db.Decimal(18, 6)
+  period_start            DateTime?                  @db.Timestamptz(6)
+  period_end              DateTime?                  @db.Timestamptz(6)
+  soft_limit_ratio        Decimal                    @default(0.8) @db.Decimal(8, 4)
+  hard_limit_enforced     Boolean                    @default(true)
+  reset_at                DateTime?                  @db.Timestamptz(6)
+  last_consumed_at        DateTime?                  @db.Timestamptz(6)
+  metadata                Json                       @default("{}")
+  created_at              DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime                   @default(now()) @db.Timestamptz(6)
+  deleted_at              DateTime?                  @db.Timestamptz(6)
+  billing_invoice_items   billing_invoice_items[]
+  billing_plans           billing_plans?             @relation(fields: [billing_plan_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  billing_subscriptions   billing_subscriptions?     @relation(fields: [billing_subscription_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  organizations           organizations              @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([deleted_at], map: "idx_billing_usage_limits_deleted_at")
+  @@index([organization_id, limit_key], map: "idx_billing_usage_limits_org_key")
+  @@index([organization_id, period, period_start, period_end], map: "idx_billing_usage_limits_period")
+  @@index([billing_plan_id], map: "idx_billing_usage_limits_plan")
+  @@index([organization_id, reset_at], map: "idx_billing_usage_limits_reset_at")
+  @@index([billing_subscription_id], map: "idx_billing_usage_limits_subscription")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model cashflow_snapshots {
+  id                           String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organization_id              String                   @db.Uuid
+  period_type                  cashflow_snapshot_period
+  period_start                 DateTime                 @db.Date
+  period_end                   DateTime                 @db.Date
+  cash_in_amount               Decimal                  @default(0) @db.Decimal(18, 2)
+  cash_out_amount              Decimal                  @default(0) @db.Decimal(18, 2)
+  net_cashflow_amount          Decimal                  @default(0) @db.Decimal(18, 2)
+  inventory_cost_amount        Decimal                  @default(0) @db.Decimal(18, 2)
+  expected_settlement_amount   Decimal                  @default(0) @db.Decimal(18, 2)
+  expected_card_payment_amount Decimal                  @default(0) @db.Decimal(18, 2)
+  dead_stock_cost_amount       Decimal                  @default(0) @db.Decimal(18, 2)
+  gross_profit_amount          Decimal                  @default(0) @db.Decimal(18, 2)
+  gross_profit_margin          Decimal?                 @db.Decimal(8, 4)
+  metadata                     Json                     @default("{}")
+  created_by_job_run_id        String?                  @db.Uuid
+  created_at                   DateTime                 @default(now()) @db.Timestamptz(6)
+  updated_at                   DateTime                 @default(now()) @db.Timestamptz(6)
+  deleted_at                   DateTime?                @db.Timestamptz(6)
+  job_runs                     job_runs?                @relation(fields: [organization_id, created_by_job_run_id], references: [organization_id, id], onDelete: NoAction, onUpdate: NoAction, map: "cashflow_snapshots_job_run_same_org")
+  organizations                organizations            @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([organization_id, period_type, period_start, period_end], map: "cashflow_snapshots_unique_period")
+  @@index([organization_id, period_type, period_start(sort: Desc)], map: "idx_cashflow_snapshots_org_period")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model channel_product_matches {
+  id                                                                                                             String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organization_id                                                                                                String                        @db.Uuid
+  product_id                                                                                                     String?                       @db.Uuid
+  channel                                                                                                        sales_channel
+  channel_product_id                                                                                             String?
+  channel_url                                                                                                    String?
+  channel_title                                                                                                  String
+  channel_image_url                                                                                              String?
+  condition                                                                                                      product_condition             @default(unknown)
+  match_method                                                                                                   product_match_method          @default(unknown)
+  confidence_score                                                                                               Decimal?                      @db.Decimal(5, 2)
+  is_verified                                                                                                    Boolean                       @default(false)
+  verified_by_user_id                                                                                            String?                       @db.Uuid
+  verified_at                                                                                                    DateTime?                     @db.Timestamptz(6)
+  raw_payload                                                                                                    Json?
+  created_at                                                                                                     DateTime                      @default(now()) @db.Timestamptz(6)
+  updated_at                                                                                                     DateTime                      @default(now()) @db.Timestamptz(6)
+  deleted_at                                                                                                     DateTime?                     @db.Timestamptz(6)
+  organizations                                                                                                  organizations                 @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products_channel_product_matches_product_idToproducts                                                          products?                     @relation("channel_product_matches_product_idToproducts", fields: [product_id], references: [id], onUpdate: NoAction)
+  products_channel_product_matches_organization_id_product_idToproducts                                          products?                     @relation("channel_product_matches_organization_id_product_idToproducts", fields: [organization_id, product_id], references: [organization_id, id], onDelete: NoAction, onUpdate: NoAction, map: "channel_product_matches_product_same_org")
+  users                                                                                                          users?                        @relation(fields: [verified_by_user_id], references: [id], onUpdate: NoAction)
+  cross_channel_opportunities_cross_channel_opportunities_buy_match_idTochannel_product_matches                  cross_channel_opportunities[] @relation("cross_channel_opportunities_buy_match_idTochannel_product_matches")
+  cross_channel_opportunities_cross_channel_opportunities_organization_id_buy_match_idTochannel_product_matches  cross_channel_opportunities[] @relation("cross_channel_opportunities_organization_id_buy_match_idTochannel_product_matches")
+  cross_channel_opportunities_cross_channel_opportunities_sell_match_idTochannel_product_matches                 cross_channel_opportunities[] @relation("cross_channel_opportunities_sell_match_idTochannel_product_matches")
+  cross_channel_opportunities_cross_channel_opportunities_organization_id_sell_match_idTochannel_product_matches cross_channel_opportunities[] @relation("cross_channel_opportunities_organization_id_sell_match_idTochannel_product_matches")
+
+  @@unique([organization_id, id], map: "channel_product_matches_org_id_unique")
+  @@unique([organization_id, channel, channel_product_id], map: "channel_product_matches_unique_channel_product")
+  @@index([organization_id, channel], map: "idx_channel_product_matches_channel")
+  @@index([organization_id, confidence_score(sort: Desc)], map: "idx_channel_product_matches_confidence")
+  @@index([organization_id], map: "idx_channel_product_matches_org")
+  @@index([product_id], map: "idx_channel_product_matches_product")
+  @@index([organization_id, is_verified], map: "idx_channel_product_matches_verified")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model channels {
+  id                                                     String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organization_id                                        String               @db.Uuid
+  channel                                                sales_channel
+  name                                                   String
+  api_credential_id                                      String?              @db.Uuid
+  is_enabled                                             Boolean              @default(true)
+  settings                                               Json                 @default("{}")
+  created_by_user_id                                     String?              @db.Uuid
+  updated_by_user_id                                     String?              @db.Uuid
+  created_at                                             DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at                                             DateTime             @default(now()) @db.Timestamptz(6)
+  deleted_at                                             DateTime?            @db.Timestamptz(6)
+  api_credentials                                        api_credentials?     @relation(fields: [api_credential_id], references: [id], onUpdate: NoAction)
+  users_channels_created_by_user_idTousers               users?               @relation("channels_created_by_user_idTousers", fields: [created_by_user_id], references: [id], onUpdate: NoAction)
+  organizations                                          organizations        @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_channels_updated_by_user_idTousers               users?               @relation("channels_updated_by_user_idTousers", fields: [updated_by_user_id], references: [id], onUpdate: NoAction)
+  listings_listings_channel_idTochannels                 listings[]           @relation("listings_channel_idTochannels")
+  listings_listings_organization_id_channel_idTochannels listings[]           @relation("listings_organization_id_channel_idTochannels")
+  orders_orders_channel_idTochannels                     orders[]             @relation("orders_channel_idTochannels")
+  orders_orders_organization_id_channel_idTochannels     orders[]             @relation("orders_organization_id_channel_idTochannels")
+  settlement_reports                                     settlement_reports[]
+
+  @@unique([organization_id, id], map: "channels_org_id_unique")
+  @@unique([organization_id, channel, name], map: "channels_unique_channel_name")
+  @@index([organization_id, channel], map: "idx_channels_channel")
+  @@index([organization_id, is_enabled], map: "idx_channels_enabled")
+  @@index([organization_id], map: "idx_channels_org")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model cross_channel_opportunities {
+  id                                                                                                         String                         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organization_id                                                                                            String                         @db.Uuid
+  product_id                                                                                                 String?                        @db.Uuid
+  opportunity_type                                                                                           cross_channel_opportunity_type @default(buy_low_sell_high)
+  buy_match_id                                                                                               String?                        @db.Uuid
+  sell_match_id                                                                                              String?                        @db.Uuid
+  buy_market_price_id                                                                                        String?                        @db.Uuid
+  sell_market_price_id                                                                                       String?                        @db.Uuid
+  buy_channel                                                                                                sales_channel
+  buy_channel_product_id                                                                                     String?
+  buy_url                                                                                                    String?
+  buy_condition                                                                                              product_condition              @default(unknown)
+  buy_price_amount                                                                                           Decimal                        @db.Decimal(18, 2)
+  buy_shipping_amount                                                                                        Decimal                        @default(0) @db.Decimal(18, 2)
+  buy_point_value_amount                                                                                     Decimal                        @default(0) @db.Decimal(18, 2)
+  buy_currency_code                                                                                          String                         @default("JPY") @db.Char(3)
+  sell_channel                                                                                               sales_channel
+  sell_channel_product_id                                                                                    String?
+  sell_url                                                                                                   String?
+  sell_condition                                                                                             product_condition              @default(unknown)
+  expected_sell_price_amount                                                                                 Decimal                        @db.Decimal(18, 2)
+  sell_currency_code                                                                                         String                         @default("JPY") @db.Char(3)
+  estimated_fee_amount                                                                                       Decimal                        @default(0) @db.Decimal(18, 2)
+  estimated_tax_amount                                                                                       Decimal                        @default(0) @db.Decimal(18, 2)
+  estimated_shipping_amount                                                                                  Decimal                        @default(0) @db.Decimal(18, 2)
+  estimated_packaging_amount                                                                                 Decimal                        @default(0) @db.Decimal(18, 2)
+  estimated_profit_amount                                                                                    Decimal?                       @db.Decimal(18, 2)
+  estimated_roi                                                                                              Decimal?                       @db.Decimal(8, 4)
+  estimated_profit_margin                                                                                    Decimal?                       @db.Decimal(8, 4)
+  match_confidence_score                                                                                     Decimal?                       @db.Decimal(5, 2)
+  demand_score                                                                                               Decimal?                       @db.Decimal(5, 2)
+  risk_score                                                                                                 Decimal?                       @db.Decimal(5, 2)
+  judgement                                                                                                  ai_judgement                   @default(unknown)
+  reason_summary                                                                                             String?
+  risk_notes                                                                                                 String?
+  fee_breakdown                                                                                              Json                           @default("{}")
+  calculation_version                                                                                        String?
+  estimated_delivery_days                                                                                    Int?
+  status                                                                                                     sourcing_candidate_status      @default(new)
+  source_snapshot                                                                                            Json                           @default("{}")
+  expires_at                                                                                                 DateTime?                      @db.Timestamptz(6)
+  discovered_by_job_run_id                                                                                   String?                        @db.Uuid
+  created_at                                                                                                 DateTime                       @default(now()) @db.Timestamptz(6)
+  updated_at                                                                                                 DateTime                       @default(now()) @db.Timestamptz(6)
+  deleted_at                                                                                                 DateTime?                      @db.Timestamptz(6)
+  market_prices_cross_channel_opportunities_buy_market_price_idTomarket_prices                               market_prices?                 @relation("cross_channel_opportunities_buy_market_price_idTomarket_prices", fields: [buy_market_price_id], references: [id], onUpdate: NoAction)
+  channel_product_matches_cross_channel_opportunities_buy_match_idTochannel_product_matches                  channel_product_matches?       @relation("cross_channel_opportunities_buy_match_idTochannel_product_matches", fields: [buy_match_id], references: [id], onUpdate: NoAction)
+  channel_product_matches_cross_channel_opportunities_organization_id_buy_match_idTochannel_product_matches  channel_product_matches?       @relation("cross_channel_opportunities_organization_id_buy_match_idTochannel_product_matches", fields: [organization_id, buy_match_id], references: [organization_id, id], onDelete: NoAction, onUpdate: NoAction, map: "cross_channel_opportunities_buy_match_same_org")
+  market_prices_cross_channel_opportunities_organization_id_buy_market_price_idTomarket_prices               market_prices?                 @relation("cross_channel_opportunities_organization_id_buy_market_price_idTomarket_prices", fields: [organization_id, buy_market_price_id], references: [organization_id, id], onDelete: NoAction, onUpdate: NoAction, map: "cross_channel_opportunities_buy_price_same_org")
+  job_runs                                                                                                   job_runs?                      @relation(fields: [organization_id, discovered_by_job_run_id], references: [organization_id, id], onDelete: NoAction, onUpdate: NoAction, map: "cross_channel_opportunities_job_run_same_org")
+  organizations                                                                                              organizations                  @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products_cross_channel_opportunities_product_idToproducts                                                  products?                      @relation("cross_channel_opportunities_product_idToproducts", fields: [product_id], references: [id], onUpdate: NoAction)
+  products_cross_channel_opportunities_organization_id_product_idToproducts                                  products?                      @relation("cross_channel_opportunities_organization_id_product_idToproducts", fields: [organization_id, product_id], references: [organization_id, id], onDelete: NoAction, onUpdate: NoAction, map: "cross_channel_opportunities_product_same_org")
+  market_prices_cross_channel_opportunities_sell_market_price_idTomarket_prices                              market_prices?                 @relation("cross_channel_opportunities_sell_market_price_idTomarket_prices", fields: [sell_market_price_id], references: [id], onUpdate: NoAction)
+  channel_product_matches_cross_channel_opportunities_sell_match_idTochannel_product_matches                 channel_product_matches?       @relation("cross_channel_opportunities_sell_match_idTochannel_product_matches", fields: [sell_match_id], references: [id], onUpdate: NoAction)
+  channel_product_matches_cross_channel_opportunities_organization_id_sell_match_idTochannel_product_matches channel_product_matches?       @relation("cross_channel_opportunities_organization_id_sell_match_idTochannel_product_matches", fields: [organization_id, sell_match_id], references: [organization_id, id], onDelete: NoAction, onUpdate: NoAction, map: "cross_channel_opportunities_sell_match_same_org")
+  market_prices_cross_channel_opportunities_organization_id_sell_market_price_idTomarket_prices              market_prices?                 @relation("cross_channel_opportunities_organization_id_sell_market_price_idTomarket_prices", fields: [organization_id, sell_market_price_id], references: [organization_id, id], onDelete: NoAction, onUpdate: NoAction, map: "cross_channel_opportunities_sell_price_same_org")
+
+  @@index([organization_id, buy_channel, sell_channel], map: "idx_cross_channel_opportunities_channels")
+  @@index([organization_id, judgement], map: "idx_cross_channel_opportunities_judgement")
+  @@index([buy_match_id, sell_match_id], map: "idx_cross_channel_opportunities_matches")
+  @@index([organization_id, status], map: "idx_cross_channel_opportunities_org_status")
+  @@index([buy_market_price_id, sell_market_price_id], map: "idx_cross_channel_opportunities_prices")
+  @@index([product_id], map: "idx_cross_channel_opportunities_product")
+  @@index([organization_id, estimated_profit_amount(sort: Desc)], map: "idx_cross_channel_opportunities_profit")
+  @@index([organization_id, estimated_roi(sort: Desc)], map: "idx_cross_channel_opportunities_roi")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model fees {
+  id                                                                 String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organization_id                                                    String               @db.Uuid
+  order_id                                                           String?              @db.Uuid
+  order_item_id                                                      String?              @db.Uuid
+  listing_id                                                         String?              @db.Uuid
+  fee_type                                                           fee_type
+  description                                                        String?
+  amount                                                             Decimal              @db.Decimal(18, 2)
+  currency_code                                                      String               @default("JPY") @db.Char(3)
+  charged_at                                                         DateTime?            @db.Timestamptz(6)
+  raw_payload                                                        Json?
+  created_at                                                         DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at                                                         DateTime             @default(now()) @db.Timestamptz(6)
+  deleted_at                                                         DateTime?            @db.Timestamptz(6)
+  accounting_entries_accounting_entries_fee_idTofees                 accounting_entries[] @relation("accounting_entries_fee_idTofees")
+  accounting_entries_accounting_entries_organization_id_fee_idTofees accounting_entries[] @relation("accounting_entries_organization_id_fee_idTofees")
+  listings                                                           listings?            @relation(fields: [listing_id], references: [id], onUpdate: NoAction)
+  orders_fees_order_idToorders                                       orders?              @relation("fees_order_idToorders", fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  order_items                                                        order_items?         @relation(fields: [order_item_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  orders_fees_organization_id_order_idToorders                       orders?              @relation("fees_organization_id_order_idToorders", fields: [organization_id, order_id], references: [organization_id, id], onDelete: NoAction, onUpdate: NoAction, map: "fees_order_same_org")
+  organizations                                                      organizations        @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([organization_id, id], map: "fees_org_id_unique")
+  @@index([organization_id, charged_at(sort: Desc)], map: "idx_fees_charged_at")
+  @@index([order_id], map: "idx_fees_order")
+  @@index([organization_id], map: "idx_fees_org")
+  @@index([organization_id, fee_type], map: "idx_fees_type")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model inventory_items {
+  id                                                                                       String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organization_id                                                                          String                    @db.Uuid
+  product_id                                                                               String?                   @db.Uuid
+  supplier_id                                                                              String?                   @db.Uuid
+  purchase_order_id                                                                        String?                   @db.Uuid
+  purchase_order_item_id                                                                   String?                   @db.Uuid
+  receipt_id                                                                               String?                   @db.Uuid
+  secondhand_trade_record_id                                                               String?                   @db.Uuid
+  sourcing_candidate_id                                                                    String?                   @db.Uuid
+  inventory_sku                                                                            String
+  supplier_sku                                                                             String?
+  serial_number                                                                            String?
+  status                                                                                   inventory_status          @default(candidate)
+  condition                                                                                product_condition         @default(unknown)
+  quantity                                                                                 Int                       @default(1)
+  acquisition_cost_amount                                                                  Decimal                   @default(0) @db.Decimal(18, 2)
+  carrying_cost_amount                                                                     Decimal                   @default(0) @db.Decimal(18, 2)
+  expected_sell_price_amount                                                               Decimal?                  @db.Decimal(18, 2)
+  listed_channel                                                                           sales_channel?
+  listed_channel_item_id                                                                   String?
+  listed_url                                                                               String?
+  listed_price_amount                                                                      Decimal?                  @db.Decimal(18, 2)
+  warehouse_code                                                                           String?
+  location_code                                                                            String?
+  bin_code                                                                                 String?
+  received_at                                                                              DateTime?                 @db.Timestamptz(6)
+  inspected_at                                                                             DateTime?                 @db.Timestamptz(6)
+  listed_at                                                                                DateTime?                 @db.Timestamptz(6)
+  reserved_at                                                                              DateTime?                 @db.Timestamptz(6)
+  sold_at                                                                                  DateTime?                 @db.Timestamptz(6)
+  returned_at                                                                              DateTime?                 @db.Timestamptz(6)
+  dead_stock_at                                                                            DateTime?                 @db.Timestamptz(6)
+  disposed_at                                                                              DateTime?                 @db.Timestamptz(6)
+  reserved_reference_type                                                                  String?
+  reserved_reference_id                                                                    String?                   @db.Uuid
+  sold_reference_type                                                                      String?
+  sold_reference_id                                                                        String?                   @db.Uuid
+  notes                                                                                    String?
+  metadata                                                                                 Json                      @default("{}")
+  created_by_user_id                                                                       String?                   @db.Uuid
+  updated_by_user_id                                                                       String?                   @db.Uuid
+  created_at                                                                               DateTime                  @default(now()) @db.Timestamptz(6)
+  updated_at                                                                               DateTime                  @default(now()) @db.Timestamptz(6)
+  deleted_at                                                                               DateTime?                 @db.Timestamptz(6)
+  accounting_entries_accounting_entries_inventory_item_idToinventory_items                 accounting_entries[]      @relation("accounting_entries_inventory_item_idToinventory_items")
+  accounting_entries_accounting_entries_organization_id_inventory_item_idToinventory_items accounting_entries[]      @relation("accounting_entries_organization_id_inventory_item_idToinventory_items")
+  users_inventory_items_created_by_user_idTousers                                          users?                    @relation("inventory_items_created_by_user_idTousers", fields: [created_by_user_id], references: [id], onUpdate: NoAction)
+  organizations                                                                            organizations             @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products                                                                                 products?                 @relation(fields: [product_id], references: [id], onUpdate: NoAction)
+  purchase_orders                                                                          purchase_orders?          @relation(fields: [purchase_order_id], references: [id], onUpdate: NoAction)
+  purchase_order_items                                                                     purchase_order_items?     @relation(fields: [purchase_order_item_id], references: [id], onUpdate: NoAction)
+  receipts                                                                                 receipts?                 @relation(fields: [receipt_id], references: [id], onUpdate: NoAction)
+  secondhand_trade_records                                                                 secondhand_trade_records? @relation(fields: [secondhand_trade_record_id], references: [id], onUpdate: NoAction)
+  sourcing_candidates                                                                      sourcing_candidates?      @relation(fields: [sourcing_candidate_id], references: [id], onUpdate: NoAction)
+  suppliers                                                                                suppliers?                @relation(fields: [supplier_id], references: [id], onUpdate: NoAction)
+  users_inventory_items_updated_by_user_idTousers                                          users?                    @relation("inventory_items_updated_by_user_idTousers", fields: [updated_by_user_id], references: [id], onUpdate: NoAction)
+  inventory_movements                                                                      inventory_movements[]
+  listings                                                                                 listings[]
+  order_items                                                                              order_items[]
+  returns                                                                                  returns[]
+
+  @@unique([organization_id, id], map: "inventory_items_org_id_unique")
+  @@unique([organization_id, inventory_sku], map: "inventory_items_sku_unique")
+  @@index([deleted_at], map: "idx_inventory_items_deleted_at")
+  @@index([organization_id, listed_channel, listed_channel_item_id], map: "idx_inventory_items_listed")
+  @@index([organization_id, warehouse_code, location_code, bin_code], map: "idx_inventory_items_location")
+  @@index([purchase_order_item_id], map: "idx_inventory_items_order_item")
+  @@index([organization_id, status], map: "idx_inventory_items_org_status")
+  @@index([product_id], map: "idx_inventory_items_product")
+  @@index([receipt_id], map: "idx_inventory_items_receipt")
+  @@index([secondhand_trade_record_id], map: "idx_inventory_items_secondhand_record")
+  @@index([organization_id, status, updated_at(sort: Desc)], map: "idx_inventory_items_status_updated")
+  @@index([supplier_id], map: "idx_inventory_items_supplier")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model inventory_movements {
+  id                  String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organization_id     String                  @db.Uuid
+  inventory_item_id   String                  @db.Uuid
+  product_id          String?                 @db.Uuid
+  movement_type       inventory_movement_type
+  from_status         inventory_status?
+  to_status           inventory_status?
+  quantity_delta      Int
+  from_warehouse_code String?
+  from_location_code  String?
+  from_bin_code       String?
+  to_warehouse_code   String?
+  to_location_code    String?
+  to_bin_code         String?
+  reference_type      String?
+  reference_id        String?                 @db.Uuid
+  reason              String?
+  notes               String?
+  occurred_at         DateTime                @default(now()) @db.Timestamptz(6)
+  created_by_user_id  String?                 @db.Uuid
+  metadata            Json                    @default("{}")
+  created_at          DateTime                @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime                @default(now()) @db.Timestamptz(6)
+  deleted_at          DateTime?               @db.Timestamptz(6)
+  users               users?                  @relation(fields: [created_by_user_id], references: [id], onUpdate: NoAction)
+  inventory_items     inventory_items         @relation(fields: [inventory_item_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  organizations       organizations           @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products            products?               @relation(fields: [product_id], references: [id], onUpdate: NoAction)
+
+  @@index([deleted_at], map: "idx_inventory_movements_deleted_at")
+  @@index([inventory_item_id, occurred_at(sort: Desc)], map: "idx_inventory_movements_item")
+  @@index([organization_id, occurred_at(sort: Desc)], map: "idx_inventory_movements_org_occurred_at")
+  @@index([product_id], map: "idx_inventory_movements_product")
+  @@index([reference_type, reference_id], map: "idx_inventory_movements_reference")
+  @@index([organization_id, movement_type], map: "idx_inventory_movements_type")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model job_run_logs {
+  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organization_id String            @db.Uuid
+  job_run_id      String            @db.Uuid
+  job_id          String?           @db.Uuid
+  level           job_run_log_level @default(info)
+  message         String
+  context         Json              @default("{}")
+  error_code      String?
+  logged_at       DateTime          @default(now()) @db.Timestamptz(6)
+  created_at      DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime          @default(now()) @db.Timestamptz(6)
+  deleted_at      DateTime?         @db.Timestamptz(6)
+  jobs            jobs?             @relation(fields: [job_id], references: [id], onUpdate: NoAction)
+  job_runs        job_runs          @relation(fields: [job_run_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  organizations   organizations     @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([deleted_at], map: "idx_job_run_logs_deleted_at")
+  @@index([job_id], map: "idx_job_run_logs_job")
+  @@index([organization_id, level], map: "idx_job_run_logs_level")
+  @@index([organization_id], map: "idx_job_run_logs_org")
+  @@index([job_run_id, logged_at], map: "idx_job_run_logs_run_logged_at")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model job_runs {
+  id                                         String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organization_id                            String                        @db.Uuid
+  job_id                                     String?                       @db.Uuid
+  bullmq_job_id                              String?
+  queue_name                                 String                        @default("default")
+  run_key                                    String?
+  status                                     job_run_status                @default(scheduled)
+  trigger_type                               job_trigger_type              @default(schedule)
+  scheduled_for                              DateTime?                     @db.Timestamptz(6)
+  enqueued_at                                DateTime?                     @db.Timestamptz(6)
+  started_at                                 DateTime?                     @db.Timestamptz(6)
+  finished_at                                DateTime?                     @db.Timestamptz(6)
+  next_retry_at                              DateTime?                     @db.Timestamptz(6)
+  attempt_number                             Int                           @default(1)
+  max_attempts                               Int                           @default(1)
+  retry_count                                Int                           @default(0)
+  progress                                   Decimal                       @default(0) @db.Decimal(5, 2)
+  heartbeat_at                               DateTime?                     @db.Timestamptz(6)
+  duration_ms                                Int?
+  input_payload                              Json                          @default("{}")
+  output_payload                             Json?
+  failure_reason                             String?
+  error_code                                 String?
+  error_stack                                String?
+  worker_id                                  String?
+  created_by_user_id                         String?                       @db.Uuid
+  metadata                                   Json                          @default("{}")
+  created_at                                 DateTime                      @default(now()) @db.Timestamptz(6)
+  updated_at                                 DateTime                      @default(now()) @db.Timestamptz(6)
+  deleted_at                                 DateTime?                     @db.Timestamptz(6)
+  accounting_entries                         accounting_entries[]
+  ai_scores                                  ai_scores[]
+  alert_deliveries                           alert_deliveries[]
+  api_credential_access_logs                 api_credential_access_logs[]
+  cashflow_snapshots                         cashflow_snapshots[]
+  cross_channel_opportunities                cross_channel_opportunities[]
+  job_run_logs                               job_run_logs[]
+  users                                      users?                        @relation(fields: [created_by_user_id], references: [id], onUpdate: NoAction)
+  jobs_job_runs_job_idTojobs                 jobs?                         @relation("job_runs_job_idTojobs", fields: [job_id], references: [id], onUpdate: NoAction)
+  jobs_job_runs_organization_id_job_idTojobs jobs?                         @relation("job_runs_organization_id_job_idTojobs", fields: [organization_id, job_id], references: [organization_id, id], onDelete: NoAction, onUpdate: NoAction, map: "job_runs_job_same_org")
+  organizations                              organizations                 @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  settlement_reports                         settlement_reports[]
+  sourcing_candidates                        sourcing_candidates[]
+  tax_summary_reports                        tax_summary_reports[]
+
+  @@unique([organization_id, id], map: "job_runs_org_id_unique")
+  @@unique([organization_id, queue_name, bullmq_job_id], map: "job_runs_unique_bullmq_job")
+  @@unique([organization_id, run_key], map: "job_runs_unique_run_key")
+  @@index([organization_id, created_at(sort: Desc)], map: "idx_job_runs_created_at")
+  @@index([deleted_at], map: "idx_job_runs_deleted_at")
+  @@index([organization_id, finished_at(sort: Desc)], map: "idx_job_runs_finished_at")
+  @@index([job_id, status], map: "idx_job_runs_job_status")
+  @@index([organization_id, status], map: "idx_job_runs_org_status")
+  @@index([organization_id, scheduled_for], map: "idx_job_runs_scheduled_for")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model jobs {
+  id                                             String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organization_id                                String            @db.Uuid
+  queue_name                                     String            @default("default")
+  job_key                                        String
+  name                                           String
+  description                                    String?
+  job_type                                       String
+  status                                         job_status        @default(active)
+  schedule_type                                  job_schedule_type @default(manual)
+  cron_expression                                String?
+  repeat_interval_seconds                        Int?
+  one_time_run_at                                DateTime?         @db.Timestamptz(6)
+  timezone                                       String            @default("Asia/Tokyo")
+  payload                                        Json              @default("{}")
+  priority                                       Int               @default(0)
+  concurrency_key                                String?
+  max_concurrency                                Int               @default(1)
+  timeout_seconds                                Int?
+  max_attempts                                   Int               @default(3)
+  backoff_strategy                               String            @default("exponential")
+  backoff_delay_seconds                          Int               @default(60)
+  next_run_at                                    DateTime?         @db.Timestamptz(6)
+  last_run_at                                    DateTime?         @db.Timestamptz(6)
+  last_success_at                                DateTime?         @db.Timestamptz(6)
+  last_failed_at                                 DateTime?         @db.Timestamptz(6)
+  last_failure_reason                            String?
+  created_by_user_id                             String?           @db.Uuid
+  updated_by_user_id                             String?           @db.Uuid
+  metadata                                       Json              @default("{}")
+  created_at                                     DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at                                     DateTime          @default(now()) @db.Timestamptz(6)
+  deleted_at                                     DateTime?         @db.Timestamptz(6)
+  job_run_logs                                   job_run_logs[]
+  job_runs_job_runs_job_idTojobs                 job_runs[]        @relation("job_runs_job_idTojobs")
+  job_runs_job_runs_organization_id_job_idTojobs job_runs[]        @relation("job_runs_organization_id_job_idTojobs")
+  users_jobs_created_by_user_idTousers           users?            @relation("jobs_created_by_user_idTousers", fields: [created_by_user_id], references: [id], onUpdate: NoAction)
+  organizations                                  organizations     @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_jobs_updated_by_user_idTousers           users?            @relation("jobs_updated_by_user_idTousers", fields: [updated_by_user_id], references: [id], onUpdate: NoAction)
+
+  @@unique([organization_id, id], map: "jobs_org_id_unique")
+  @@unique([organization_id, queue_name, job_key], map: "jobs_unique_key")
+  @@index([organization_id, concurrency_key], map: "idx_jobs_concurrency_key")
+  @@index([deleted_at], map: "idx_jobs_deleted_at")
+  @@index([organization_id, status], map: "idx_jobs_org_status")
+  @@index([organization_id, schedule_type], map: "idx_jobs_schedule")
+  @@index([organization_id, job_type], map: "idx_jobs_type")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model listings {
+  id                                                     String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organization_id                                        String            @db.Uuid
+  channel_id                                             String?           @db.Uuid
+  channel                                                sales_channel
+  inventory_item_id                                      String?           @db.Uuid
+  product_id                                             String?           @db.Uuid
+  external_listing_id                                    String?
+  external_product_id                                    String?
+  listing_url                                            String?
+  title                                                  String
+  status                                                 listing_status    @default(draft)
+  listed_price_amount                                    Decimal?          @db.Decimal(18, 2)
+  currency_code                                          String            @default("JPY") @db.Char(3)
+  listed_quantity                                        Int               @default(1)
+  available_quantity                                     Int               @default(1)
+  condition                                              product_condition @default(unknown)
+  listed_at                                              DateTime?         @db.Timestamptz(6)
+  ended_at                                               DateTime?         @db.Timestamptz(6)
+  last_synced_at                                         DateTime?         @db.Timestamptz(6)
+  sync_error_message                                     String?
+  raw_payload                                            Json?
+  created_by_user_id                                     String?           @db.Uuid
+  updated_by_user_id                                     String?           @db.Uuid
+  created_at                                             DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at                                             DateTime          @default(now()) @db.Timestamptz(6)
+  deleted_at                                             DateTime?         @db.Timestamptz(6)
+  fees                                                   fees[]
+  channels_listings_channel_idTochannels                 channels?         @relation("listings_channel_idTochannels", fields: [channel_id], references: [id], onUpdate: NoAction)
+  channels_listings_organization_id_channel_idTochannels channels?         @relation("listings_organization_id_channel_idTochannels", fields: [organization_id, channel_id], references: [organization_id, id], onDelete: NoAction, onUpdate: NoAction, map: "listings_channel_same_org")
+  users_listings_created_by_user_idTousers               users?            @relation("listings_created_by_user_idTousers", fields: [created_by_user_id], references: [id], onUpdate: NoAction)
+  inventory_items                                        inventory_items?  @relation(fields: [organization_id, inventory_item_id], references: [organization_id, id], onDelete: NoAction, onUpdate: NoAction, map: "listings_inventory_item_same_org")
+  organizations                                          organizations     @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products                                               products?         @relation(fields: [product_id], references: [id], onUpdate: NoAction)
+  users_listings_updated_by_user_idTousers               users?            @relation("listings_updated_by_user_idTousers", fields: [updated_by_user_id], references: [id], onUpdate: NoAction)
+  order_items                                            order_items[]
+
+  @@unique([organization_id, id], map: "listings_org_id_unique")
+  @@index([organization_id, channel], map: "idx_listings_channel")
+  @@index([organization_id, channel, external_listing_id], map: "idx_listings_external")
+  @@index([inventory_item_id], map: "idx_listings_inventory_item")
+  @@index([organization_id, status], map: "idx_listings_org_status")
+  @@index([product_id], map: "idx_listings_product")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model login_events {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id          String?  @db.Uuid
+  email_normalized String?
+  success          Boolean
+  failure_reason   String?
+  ip_address       String?  @db.Inet
+  user_agent       String?
+  created_at       DateTime @default(now()) @db.Timestamptz(6)
+  users            users?   @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+
+  @@index([created_at], map: "idx_login_events_created_at")
+  @@index([email_normalized], map: "idx_login_events_email")
+  @@index([user_id], map: "idx_login_events_user")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model market_prices {
+  id                                                                                                          String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organization_id                                                                                             String                        @db.Uuid
+  product_id                                                                                                  String?                       @db.Uuid
+  source_channel                                                                                              sales_channel
+  source_product_id                                                                                           String?
+  source_url                                                                                                  String?
+  condition                                                                                                   product_condition             @default(unknown)
+  price_amount                                                                                                Decimal                       @db.Decimal(18, 2)
+  currency_code                                                                                               String                        @default("JPY") @db.Char(3)
+  shipping_amount                                                                                             Decimal?                      @db.Decimal(18, 2)
+  point_value_amount                                                                                          Decimal?                      @db.Decimal(18, 2)
+  available_quantity                                                                                          Int?
+  is_in_stock                                                                                                 Boolean?
+  seller_name                                                                                                 String?
+  seller_count                                                                                                Int?
+  sales_rank                                                                                                  Int?
+  review_count                                                                                                Int?
+  review_rating                                                                                               Decimal?                      @db.Decimal(3, 2)
+  buy_box_price_amount                                                                                        Decimal?                      @db.Decimal(18, 2)
+  amazon_in_stock                                                                                             Boolean?
+  raw_payload                                                                                                 Json?
+  fetched_at                                                                                                  DateTime                      @default(now()) @db.Timestamptz(6)
+  created_at                                                                                                  DateTime                      @default(now()) @db.Timestamptz(6)
+  cross_channel_opportunities_cross_channel_opportunities_buy_market_price_idTomarket_prices                  cross_channel_opportunities[] @relation("cross_channel_opportunities_buy_market_price_idTomarket_prices")
+  cross_channel_opportunities_cross_channel_opportunities_organization_id_buy_market_price_idTomarket_prices  cross_channel_opportunities[] @relation("cross_channel_opportunities_organization_id_buy_market_price_idTomarket_prices")
+  cross_channel_opportunities_cross_channel_opportunities_sell_market_price_idTomarket_prices                 cross_channel_opportunities[] @relation("cross_channel_opportunities_sell_market_price_idTomarket_prices")
+  cross_channel_opportunities_cross_channel_opportunities_organization_id_sell_market_price_idTomarket_prices cross_channel_opportunities[] @relation("cross_channel_opportunities_organization_id_sell_market_price_idTomarket_prices")
+  organizations                                                                                               organizations                 @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products                                                                                                    products?                     @relation(fields: [product_id], references: [id], onUpdate: NoAction)
+
+  @@unique([organization_id, id], map: "market_prices_org_id_unique")
+  @@index([organization_id, source_channel, fetched_at(sort: Desc)], map: "idx_market_prices_channel_fetched")
+  @@index([organization_id], map: "idx_market_prices_org")
+  @@index([product_id, fetched_at(sort: Desc)], map: "idx_market_prices_product_fetched")
+  @@index([organization_id, sales_rank], map: "idx_market_prices_sales_rank")
+  @@index([organization_id, source_channel, source_product_id], map: "idx_market_prices_source_product")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model notification_channels {
+  id                                                    String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organization_id                                       String                      @db.Uuid
+  channel_type                                          notification_channel_type
+  name                                                  String
+  status                                                notification_channel_status @default(active)
+  destination                                           String?
+  config                                                Json                        @default("{}")
+  encrypted_secret_config                               Bytes?
+  last_verified_at                                      DateTime?                   @db.Timestamptz(6)
+  last_error_message                                    String?
+  created_by_user_id                                    String?                     @db.Uuid
+  updated_by_user_id                                    String?                     @db.Uuid
+  metadata                                              Json                        @default("{}")
+  created_at                                            DateTime                    @default(now()) @db.Timestamptz(6)
+  updated_at                                            DateTime                    @default(now()) @db.Timestamptz(6)
+  deleted_at                                            DateTime?                   @db.Timestamptz(6)
+  alert_deliveries                                      alert_deliveries[]
+  users_notification_channels_created_by_user_idTousers users?                      @relation("notification_channels_created_by_user_idTousers", fields: [created_by_user_id], references: [id], onUpdate: NoAction)
+  organizations                                         organizations               @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_notification_channels_updated_by_user_idTousers users?                      @relation("notification_channels_updated_by_user_idTousers", fields: [updated_by_user_id], references: [id], onUpdate: NoAction)
+
+  @@unique([organization_id, name], map: "notification_channels_unique_name")
+  @@index([deleted_at], map: "idx_notification_channels_deleted_at")
+  @@index([organization_id, status], map: "idx_notification_channels_org_status")
+  @@index([organization_id, channel_type], map: "idx_notification_channels_type")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model order_items {
+  id                                                  String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organization_id                                     String               @db.Uuid
+  order_id                                            String               @db.Uuid
+  listing_id                                          String?              @db.Uuid
+  inventory_item_id                                   String?              @db.Uuid
+  product_id                                          String?              @db.Uuid
+  external_order_item_id                              String?
+  title                                               String
+  quantity                                            Int                  @default(1)
+  unit_price_amount                                   Decimal              @default(0) @db.Decimal(18, 2)
+  subtotal_amount                                     Decimal              @default(0) @db.Decimal(18, 2)
+  tax_amount                                          Decimal              @default(0) @db.Decimal(18, 2)
+  currency_code                                       String               @default("JPY") @db.Char(3)
+  raw_payload                                         Json?
+  created_at                                          DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at                                          DateTime             @default(now()) @db.Timestamptz(6)
+  deleted_at                                          DateTime?            @db.Timestamptz(6)
+  accounting_entries                                  accounting_entries[]
+  fees                                                fees[]
+  inventory_items                                     inventory_items?     @relation(fields: [organization_id, inventory_item_id], references: [organization_id, id], onDelete: NoAction, onUpdate: NoAction, map: "order_items_inventory_item_same_org")
+  listings                                            listings?            @relation(fields: [listing_id], references: [id], onUpdate: NoAction)
+  orders_order_items_order_idToorders                 orders               @relation("order_items_order_idToorders", fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  orders_order_items_organization_id_order_idToorders orders               @relation("order_items_organization_id_order_idToorders", fields: [organization_id, order_id], references: [organization_id, id], onDelete: NoAction, onUpdate: NoAction, map: "order_items_order_same_org")
+  organizations                                       organizations        @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products                                            products?            @relation(fields: [product_id], references: [id], onUpdate: NoAction)
+  returns                                             returns[]
+
+  @@unique([organization_id, id], map: "order_items_org_id_unique")
+  @@index([inventory_item_id], map: "idx_order_items_inventory_item")
+  @@index([order_id], map: "idx_order_items_order")
+  @@index([organization_id], map: "idx_order_items_org")
+  @@index([product_id], map: "idx_order_items_product")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model orders {
+  id                                                                     String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organization_id                                                        String               @db.Uuid
+  channel_id                                                             String?              @db.Uuid
+  channel                                                                sales_channel
+  external_order_id                                                      String?
+  status                                                                 order_status         @default(unknown)
+  buyer_name                                                             String?
+  buyer_email_hash                                                       String?
+  ordered_at                                                             DateTime?            @db.Timestamptz(6)
+  paid_at                                                                DateTime?            @db.Timestamptz(6)
+  shipped_at                                                             DateTime?            @db.Timestamptz(6)
+  delivered_at                                                           DateTime?            @db.Timestamptz(6)
+  cancelled_at                                                           DateTime?            @db.Timestamptz(6)
+  subtotal_amount                                                        Decimal              @default(0) @db.Decimal(18, 2)
+  shipping_amount                                                        Decimal              @default(0) @db.Decimal(18, 2)
+  discount_amount                                                        Decimal              @default(0) @db.Decimal(18, 2)
+  tax_amount                                                             Decimal              @default(0) @db.Decimal(18, 2)
+  total_amount                                                           Decimal              @default(0) @db.Decimal(18, 2)
+  currency_code                                                          String               @default("JPY") @db.Char(3)
+  settlement_amount                                                      Decimal?             @db.Decimal(18, 2)
+  settlement_date                                                        DateTime?            @db.Date
+  raw_payload                                                            Json?
+  last_synced_at                                                         DateTime?            @db.Timestamptz(6)
+  created_at                                                             DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at                                                             DateTime             @default(now()) @db.Timestamptz(6)
+  deleted_at                                                             DateTime?            @db.Timestamptz(6)
+  accounting_entries_accounting_entries_order_idToorders                 accounting_entries[] @relation("accounting_entries_order_idToorders")
+  accounting_entries_accounting_entries_organization_id_order_idToorders accounting_entries[] @relation("accounting_entries_organization_id_order_idToorders")
+  fees_fees_order_idToorders                                             fees[]               @relation("fees_order_idToorders")
+  fees_fees_organization_id_order_idToorders                             fees[]               @relation("fees_organization_id_order_idToorders")
+  order_items_order_items_order_idToorders                               order_items[]        @relation("order_items_order_idToorders")
+  order_items_order_items_organization_id_order_idToorders               order_items[]        @relation("order_items_organization_id_order_idToorders")
+  channels_orders_channel_idTochannels                                   channels?            @relation("orders_channel_idTochannels", fields: [channel_id], references: [id], onUpdate: NoAction)
+  channels_orders_organization_id_channel_idTochannels                   channels?            @relation("orders_organization_id_channel_idTochannels", fields: [organization_id, channel_id], references: [organization_id, id], onDelete: NoAction, onUpdate: NoAction, map: "orders_channel_same_org")
+  organizations                                                          organizations        @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  returns                                                                returns[]
+  shipments_shipments_order_idToorders                                   shipments[]          @relation("shipments_order_idToorders")
+  shipments_shipments_organization_id_order_idToorders                   shipments[]          @relation("shipments_organization_id_order_idToorders")
+
+  @@unique([organization_id, id], map: "orders_org_id_unique")
+  @@unique([organization_id, channel, external_order_id], map: "orders_unique_external")
+  @@index([organization_id, channel, ordered_at(sort: Desc)], map: "idx_orders_channel_ordered")
+  @@index([organization_id, ordered_at(sort: Desc)], map: "idx_orders_ordered_at")
+  @@index([organization_id, status], map: "idx_orders_org_status")
+  @@index([organization_id, settlement_date], map: "idx_orders_settlement_date")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model organization_invitations {
+  id                                                        String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organization_id                                           String                   @db.Uuid
+  email                                                     String
+  email_normalized                                          String
+  role                                                      organization_member_role @default(member)
+  token_hash                                                String                   @unique(map: "organization_invitations_token_hash_unique")
+  invited_by_user_id                                        String?                  @db.Uuid
+  accepted_by_user_id                                       String?                  @db.Uuid
+  expires_at                                                DateTime                 @db.Timestamptz(6)
+  accepted_at                                               DateTime?                @db.Timestamptz(6)
+  revoked_at                                                DateTime?                @db.Timestamptz(6)
+  created_at                                                DateTime                 @default(now()) @db.Timestamptz(6)
+  updated_at                                                DateTime                 @default(now()) @db.Timestamptz(6)
+  deleted_at                                                DateTime?                @db.Timestamptz(6)
+  users_organization_invitations_accepted_by_user_idTousers users?                   @relation("organization_invitations_accepted_by_user_idTousers", fields: [accepted_by_user_id], references: [id], onUpdate: NoAction)
+  users_organization_invitations_invited_by_user_idTousers  users?                   @relation("organization_invitations_invited_by_user_idTousers", fields: [invited_by_user_id], references: [id], onUpdate: NoAction)
+  organizations                                             organizations            @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([organization_id, email_normalized], map: "idx_organization_invitations_email")
+  @@index([expires_at], map: "idx_organization_invitations_expires_at")
+  @@index([organization_id], map: "idx_organization_invitations_org")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model organization_members {
+  id                                                   String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organization_id                                      String                     @db.Uuid
+  user_id                                              String                     @db.Uuid
+  role                                                 organization_member_role   @default(member)
+  status                                               organization_member_status @default(active)
+  invited_by_user_id                                   String?                    @db.Uuid
+  invited_at                                           DateTime?                  @db.Timestamptz(6)
+  joined_at                                            DateTime?                  @db.Timestamptz(6)
+  suspended_at                                         DateTime?                  @db.Timestamptz(6)
+  left_at                                              DateTime?                  @db.Timestamptz(6)
+  created_at                                           DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at                                           DateTime                   @default(now()) @db.Timestamptz(6)
+  deleted_at                                           DateTime?                  @db.Timestamptz(6)
+  users_organization_members_invited_by_user_idTousers users?                     @relation("organization_members_invited_by_user_idTousers", fields: [invited_by_user_id], references: [id], onUpdate: NoAction)
+  organizations                                        organizations              @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_organization_members_user_idTousers            users                      @relation("organization_members_user_idTousers", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([organization_id, user_id], map: "organization_members_unique_member")
+  @@index([deleted_at], map: "idx_organization_members_deleted_at")
+  @@index([organization_id], map: "idx_organization_members_org")
+  @@index([organization_id, role], map: "idx_organization_members_role")
+  @@index([organization_id, status], map: "idx_organization_members_status")
+  @@index([user_id], map: "idx_organization_members_user")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model organization_security_settings {
+  organization_id               String                 @id @db.Uuid
+  require_mfa                   Boolean                @default(false)
+  allowed_ip_ranges             Unsupported("_cidr")[]
+  session_timeout_minutes       Int                    @default(43200)
+  api_key_rotation_days         Int?
+  audit_log_retention_days      Int                    @default(365)
+  security_event_retention_days Int                    @default(365)
+  created_at                    DateTime               @default(now()) @db.Timestamptz(6)
+  updated_at                    DateTime               @default(now()) @db.Timestamptz(6)
+  organizations                 organizations          @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model organizations {
+  id                             String                          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                           String
+  slug                           String                          @unique(map: "organizations_slug_unique")
+  status                         organization_status             @default(active)
+  timezone                       String                          @default("Asia/Tokyo")
+  currency_code                  String                          @default("JPY") @db.Char(3)
+  owner_user_id                  String?                         @db.Uuid
+  created_at                     DateTime                        @default(now()) @db.Timestamptz(6)
+  updated_at                     DateTime                        @default(now()) @db.Timestamptz(6)
+  deleted_at                     DateTime?                       @db.Timestamptz(6)
+  accounting_accounts            accounting_accounts[]
+  accounting_entries             accounting_entries[]
+  accounting_export_entries      accounting_export_entries[]
+  accounting_exports             accounting_exports[]
+  ai_scores                      ai_scores[]
+  alert_deliveries               alert_deliveries[]
+  alerts                         alerts[]
+  api_credential_access_logs     api_credential_access_logs[]
+  api_credentials                api_credentials[]
+  audit_logs                     audit_logs[]
+  billing_invoice_items          billing_invoice_items[]
+  billing_invoices               billing_invoices[]
+  billing_plans                  billing_plans[]
+  billing_subscriptions          billing_subscriptions[]
+  billing_usage_limits           billing_usage_limits[]
+  cashflow_snapshots             cashflow_snapshots[]
+  channel_product_matches        channel_product_matches[]
+  channels                       channels[]
+  cross_channel_opportunities    cross_channel_opportunities[]
+  fees                           fees[]
+  inventory_items                inventory_items[]
+  inventory_movements            inventory_movements[]
+  job_run_logs                   job_run_logs[]
+  job_runs                       job_runs[]
+  jobs                           jobs[]
+  listings                       listings[]
+  market_prices                  market_prices[]
+  notification_channels          notification_channels[]
+  order_items                    order_items[]
+  orders                         orders[]
+  organization_invitations       organization_invitations[]
+  organization_members           organization_members[]
+  organization_security_settings organization_security_settings?
+  users                          users?                          @relation(fields: [owner_user_id], references: [id], onUpdate: NoAction)
+  product_identifiers            product_identifiers[]
+  products                       products[]
+  purchase_order_items           purchase_order_items[]
+  purchase_orders                purchase_orders[]
+  receipts                       receipts[]
+  returns                        returns[]
+  secondhand_trade_records       secondhand_trade_records[]
+  security_events                security_events[]
+  settlement_reports             settlement_reports[]
+  shipments                      shipments[]
+  sourcing_candidates            sourcing_candidates[]
+  suppliers                      suppliers[]
+  tax_summary_reports            tax_summary_reports[]
+  usage_logs                     usage_logs[]
+
+  @@index([deleted_at], map: "idx_organizations_deleted_at")
+  @@index([status], map: "idx_organizations_status")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model product_identifiers {
+  id                                                                String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organization_id                                                   String                  @db.Uuid
+  product_id                                                        String                  @db.Uuid
+  identifier_type                                                   product_identifier_type
+  identifier_value                                                  String
+  source_channel                                                    sales_channel?
+  is_primary                                                        Boolean                 @default(false)
+  confidence_score                                                  Decimal?                @db.Decimal(5, 2)
+  metadata                                                          Json                    @default("{}")
+  created_at                                                        DateTime                @default(now()) @db.Timestamptz(6)
+  updated_at                                                        DateTime                @default(now()) @db.Timestamptz(6)
+  deleted_at                                                        DateTime?               @db.Timestamptz(6)
+  organizations                                                     organizations           @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products_product_identifiers_product_idToproducts                 products                @relation("product_identifiers_product_idToproducts", fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products_product_identifiers_organization_id_product_idToproducts products                @relation("product_identifiers_organization_id_product_idToproducts", fields: [organization_id, product_id], references: [organization_id, id], onDelete: NoAction, onUpdate: NoAction, map: "product_identifiers_product_same_org")
+
+  @@unique([organization_id, identifier_type, identifier_value], map: "product_identifiers_unique_value")
+  @@index([organization_id, source_channel], map: "idx_product_identifiers_channel")
+  @@index([organization_id], map: "idx_product_identifiers_org")
+  @@index([product_id], map: "idx_product_identifiers_product")
+  @@index([identifier_type, identifier_value], map: "idx_product_identifiers_value")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model products {
+  id                                                                                           String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organization_id                                                                              String                        @db.Uuid
+  title                                                                                        String
+  normalized_title                                                                             String?
+  brand                                                                                        String?
+  manufacturer                                                                                 String?
+  model_number                                                                                 String?
+  category                                                                                     String?
+  sub_category                                                                                 String?
+  description                                                                                  String?
+  image_url                                                                                    String?
+  status                                                                                       product_status                @default(active)
+  default_condition                                                                            product_condition             @default(unknown)
+  is_restricted                                                                                Boolean                       @default(false)
+  restriction_reason                                                                           String?
+  notes                                                                                        String?
+  created_by_user_id                                                                           String?                       @db.Uuid
+  updated_by_user_id                                                                           String?                       @db.Uuid
+  created_at                                                                                   DateTime                      @default(now()) @db.Timestamptz(6)
+  updated_at                                                                                   DateTime                      @default(now()) @db.Timestamptz(6)
+  deleted_at                                                                                   DateTime?                     @db.Timestamptz(6)
+  ai_scores_ai_scores_product_idToproducts                                                     ai_scores[]                   @relation("ai_scores_product_idToproducts")
+  ai_scores_ai_scores_organization_id_product_idToproducts                                     ai_scores[]                   @relation("ai_scores_organization_id_product_idToproducts")
+  channel_product_matches_channel_product_matches_product_idToproducts                         channel_product_matches[]     @relation("channel_product_matches_product_idToproducts")
+  channel_product_matches_channel_product_matches_organization_id_product_idToproducts         channel_product_matches[]     @relation("channel_product_matches_organization_id_product_idToproducts")
+  cross_channel_opportunities_cross_channel_opportunities_product_idToproducts                 cross_channel_opportunities[] @relation("cross_channel_opportunities_product_idToproducts")
+  cross_channel_opportunities_cross_channel_opportunities_organization_id_product_idToproducts cross_channel_opportunities[] @relation("cross_channel_opportunities_organization_id_product_idToproducts")
+  inventory_items                                                                              inventory_items[]
+  inventory_movements                                                                          inventory_movements[]
+  listings                                                                                     listings[]
+  market_prices                                                                                market_prices[]
+  order_items                                                                                  order_items[]
+  product_identifiers_product_identifiers_product_idToproducts                                 product_identifiers[]         @relation("product_identifiers_product_idToproducts")
+  product_identifiers_product_identifiers_organization_id_product_idToproducts                 product_identifiers[]         @relation("product_identifiers_organization_id_product_idToproducts")
+  users_products_created_by_user_idTousers                                                     users?                        @relation("products_created_by_user_idTousers", fields: [created_by_user_id], references: [id], onUpdate: NoAction)
+  organizations                                                                                organizations                 @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_products_updated_by_user_idTousers                                                     users?                        @relation("products_updated_by_user_idTousers", fields: [updated_by_user_id], references: [id], onUpdate: NoAction)
+  purchase_order_items                                                                         purchase_order_items[]
+  receipts                                                                                     receipts[]
+  secondhand_trade_records                                                                     secondhand_trade_records[]
+  sourcing_candidates_sourcing_candidates_product_idToproducts                                 sourcing_candidates[]         @relation("sourcing_candidates_product_idToproducts")
+  sourcing_candidates_sourcing_candidates_organization_id_product_idToproducts                 sourcing_candidates[]         @relation("sourcing_candidates_organization_id_product_idToproducts")
+
+  @@unique([organization_id, id], map: "products_org_id_unique")
+  @@index([organization_id, brand, model_number], map: "idx_products_brand_model")
+  @@index([deleted_at], map: "idx_products_deleted_at")
+  @@index([organization_id], map: "idx_products_org")
+  @@index([organization_id, status], map: "idx_products_status")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model purchase_order_items {
+  id                        String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organization_id           String                     @db.Uuid
+  purchase_order_id         String                     @db.Uuid
+  product_id                String?                    @db.Uuid
+  sourcing_candidate_id     String?                    @db.Uuid
+  line_number               Int
+  supplier_sku              String?
+  source_product_id         String?
+  source_url                String?
+  title                     String
+  condition                 product_condition          @default(unknown)
+  quantity_ordered          Int                        @default(1)
+  quantity_cancelled        Int                        @default(0)
+  unit_cost_amount          Decimal                    @default(0) @db.Decimal(18, 2)
+  shipping_allocated_amount Decimal                    @default(0) @db.Decimal(18, 2)
+  tax_allocated_amount      Decimal                    @default(0) @db.Decimal(18, 2)
+  discount_allocated_amount Decimal                    @default(0) @db.Decimal(18, 2)
+  total_cost_amount         Decimal                    @default(0) @db.Decimal(18, 2)
+  expected_profit_amount    Decimal?                   @db.Decimal(18, 2)
+  expected_roi              Decimal?                   @db.Decimal(8, 4)
+  notes                     String?
+  metadata                  Json                       @default("{}")
+  created_at                DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at                DateTime                   @default(now()) @db.Timestamptz(6)
+  deleted_at                DateTime?                  @db.Timestamptz(6)
+  accounting_entries        accounting_entries[]
+  inventory_items           inventory_items[]
+  organizations             organizations              @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products                  products?                  @relation(fields: [product_id], references: [id], onUpdate: NoAction)
+  purchase_orders           purchase_orders            @relation(fields: [purchase_order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  sourcing_candidates       sourcing_candidates?       @relation(fields: [sourcing_candidate_id], references: [id], onUpdate: NoAction)
+  receipts                  receipts[]
+  secondhand_trade_records  secondhand_trade_records[]
+
+  @@unique([organization_id, id], map: "purchase_order_items_org_id_unique")
+  @@unique([purchase_order_id, line_number], map: "purchase_order_items_unique_line")
+  @@index([sourcing_candidate_id], map: "idx_purchase_order_items_candidate")
+  @@index([deleted_at], map: "idx_purchase_order_items_deleted_at")
+  @@index([purchase_order_id], map: "idx_purchase_order_items_order")
+  @@index([organization_id], map: "idx_purchase_order_items_org")
+  @@index([product_id], map: "idx_purchase_order_items_product")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model purchase_orders {
+  id                                              String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organization_id                                 String                     @db.Uuid
+  supplier_id                                     String?                    @db.Uuid
+  sourcing_candidate_id                           String?                    @db.Uuid
+  order_number                                    String
+  supplier_order_reference                        String?
+  source_channel                                  sales_channel?
+  source_url                                      String?
+  status                                          purchase_order_status      @default(draft)
+  ordered_at                                      DateTime?                  @db.Timestamptz(6)
+  expected_delivery_at                            DateTime?                  @db.Timestamptz(6)
+  cancelled_at                                    DateTime?                  @db.Timestamptz(6)
+  closed_at                                       DateTime?                  @db.Timestamptz(6)
+  currency_code                                   String                     @default("JPY") @db.Char(3)
+  subtotal_amount                                 Decimal                    @default(0) @db.Decimal(18, 2)
+  shipping_amount                                 Decimal                    @default(0) @db.Decimal(18, 2)
+  tax_amount                                      Decimal                    @default(0) @db.Decimal(18, 2)
+  discount_amount                                 Decimal                    @default(0) @db.Decimal(18, 2)
+  total_amount                                    Decimal                    @default(0) @db.Decimal(18, 2)
+  notes                                           String?
+  metadata                                        Json                       @default("{}")
+  created_by_user_id                              String?                    @db.Uuid
+  updated_by_user_id                              String?                    @db.Uuid
+  created_at                                      DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at                                      DateTime                   @default(now()) @db.Timestamptz(6)
+  deleted_at                                      DateTime?                  @db.Timestamptz(6)
+  accounting_entries                              accounting_entries[]
+  inventory_items                                 inventory_items[]
+  purchase_order_items                            purchase_order_items[]
+  users_purchase_orders_created_by_user_idTousers users?                     @relation("purchase_orders_created_by_user_idTousers", fields: [created_by_user_id], references: [id], onUpdate: NoAction)
+  organizations                                   organizations              @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  sourcing_candidates                             sourcing_candidates?       @relation(fields: [sourcing_candidate_id], references: [id], onUpdate: NoAction)
+  suppliers                                       suppliers?                 @relation(fields: [supplier_id], references: [id], onUpdate: NoAction)
+  users_purchase_orders_updated_by_user_idTousers users?                     @relation("purchase_orders_updated_by_user_idTousers", fields: [updated_by_user_id], references: [id], onUpdate: NoAction)
+  receipts                                        receipts[]
+  secondhand_trade_records                        secondhand_trade_records[]
+
+  @@unique([organization_id, order_number], map: "purchase_orders_order_number_unique")
+  @@unique([organization_id, id], map: "purchase_orders_org_id_unique")
+  @@index([deleted_at], map: "idx_purchase_orders_deleted_at")
+  @@index([organization_id, ordered_at(sort: Desc)], map: "idx_purchase_orders_ordered_at")
+  @@index([organization_id, status], map: "idx_purchase_orders_org_status")
+  @@index([organization_id, source_channel, supplier_order_reference], map: "idx_purchase_orders_source")
+  @@index([supplier_id], map: "idx_purchase_orders_supplier")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model receipts {
+  id                                         String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organization_id                            String                     @db.Uuid
+  purchase_order_id                          String?                    @db.Uuid
+  purchase_order_item_id                     String?                    @db.Uuid
+  supplier_id                                String?                    @db.Uuid
+  product_id                                 String?                    @db.Uuid
+  receipt_number                             String
+  status                                     receipt_status             @default(pending)
+  received_quantity                          Int                        @default(0)
+  rejected_quantity                          Int                        @default(0)
+  condition                                  product_condition          @default(unknown)
+  carrier                                    String?
+  tracking_number                            String?
+  received_at                                DateTime?                  @db.Timestamptz(6)
+  inspected_at                               DateTime?                  @db.Timestamptz(6)
+  received_by_user_id                        String?                    @db.Uuid
+  inspected_by_user_id                       String?                    @db.Uuid
+  storage_location_code                      String?
+  rejection_reason                           String?
+  notes                                      String?
+  metadata                                   Json                       @default("{}")
+  created_at                                 DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at                                 DateTime                   @default(now()) @db.Timestamptz(6)
+  deleted_at                                 DateTime?                  @db.Timestamptz(6)
+  accounting_entries                         accounting_entries[]
+  inventory_items                            inventory_items[]
+  users_receipts_inspected_by_user_idTousers users?                     @relation("receipts_inspected_by_user_idTousers", fields: [inspected_by_user_id], references: [id], onUpdate: NoAction)
+  organizations                              organizations              @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products                                   products?                  @relation(fields: [product_id], references: [id], onUpdate: NoAction)
+  purchase_orders                            purchase_orders?           @relation(fields: [purchase_order_id], references: [id], onUpdate: NoAction)
+  purchase_order_items                       purchase_order_items?      @relation(fields: [purchase_order_item_id], references: [id], onUpdate: NoAction)
+  users_receipts_received_by_user_idTousers  users?                     @relation("receipts_received_by_user_idTousers", fields: [received_by_user_id], references: [id], onUpdate: NoAction)
+  suppliers                                  suppliers?                 @relation(fields: [supplier_id], references: [id], onUpdate: NoAction)
+  secondhand_trade_records                   secondhand_trade_records[]
+
+  @@unique([organization_id, id], map: "receipts_org_id_unique")
+  @@unique([organization_id, receipt_number], map: "receipts_receipt_number_unique")
+  @@index([deleted_at], map: "idx_receipts_deleted_at")
+  @@index([purchase_order_id], map: "idx_receipts_order")
+  @@index([purchase_order_item_id], map: "idx_receipts_order_item")
+  @@index([organization_id, status], map: "idx_receipts_org_status")
+  @@index([product_id], map: "idx_receipts_product")
+  @@index([organization_id, received_at(sort: Desc)], map: "idx_receipts_received_at")
+  @@index([supplier_id], map: "idx_receipts_supplier")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model returns {
+  id                 String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organization_id    String               @db.Uuid
+  order_id           String?              @db.Uuid
+  order_item_id      String?              @db.Uuid
+  inventory_item_id  String?              @db.Uuid
+  return_status      return_status        @default(requested)
+  reason             String?
+  refund_amount      Decimal?             @db.Decimal(18, 2)
+  currency_code      String               @default("JPY") @db.Char(3)
+  requested_at       DateTime?            @db.Timestamptz(6)
+  received_at        DateTime?            @db.Timestamptz(6)
+  refunded_at        DateTime?            @db.Timestamptz(6)
+  restockable        Boolean?
+  raw_payload        Json?
+  created_at         DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime             @default(now()) @db.Timestamptz(6)
+  deleted_at         DateTime?            @db.Timestamptz(6)
+  accounting_entries accounting_entries[]
+  inventory_items    inventory_items?     @relation(fields: [organization_id, inventory_item_id], references: [organization_id, id], onDelete: NoAction, onUpdate: NoAction, map: "returns_inventory_item_same_org")
+  orders             orders?              @relation(fields: [order_id], references: [id], onUpdate: NoAction)
+  order_items        order_items?         @relation(fields: [order_item_id], references: [id], onUpdate: NoAction)
+  organizations      organizations        @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([organization_id, id], map: "returns_org_id_unique")
+  @@index([inventory_item_id], map: "idx_returns_inventory_item")
+  @@index([order_id], map: "idx_returns_order")
+  @@index([organization_id, return_status], map: "idx_returns_org_status")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model secondhand_trade_records {
+  id                                                                 String                                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organization_id                                                    String                                  @db.Uuid
+  supplier_id                                                        String?                                 @db.Uuid
+  purchase_order_id                                                  String?                                 @db.Uuid
+  purchase_order_item_id                                             String?                                 @db.Uuid
+  receipt_id                                                         String?                                 @db.Uuid
+  product_id                                                         String?                                 @db.Uuid
+  record_number                                                      String
+  trade_direction                                                    secondhand_trade_direction              @default(purchase)
+  trade_date                                                         DateTime                                @db.Date
+  trade_place                                                        String?
+  supplier_name_snapshot                                             String
+  supplier_address_snapshot                                          String?
+  supplier_phone_snapshot                                            String?
+  supplier_birthdate                                                 DateTime?                               @db.Date
+  supplier_occupation                                                String?
+  identity_verification_method                                       secondhand_identity_verification_method
+  identity_document_type                                             String?
+  identity_document_number_hash                                      String?
+  identity_document_issuer                                           String?
+  identity_verified_at                                               DateTime?                               @db.Timestamptz(6)
+  identity_verified_by_user_id                                       String?                                 @db.Uuid
+  item_name                                                          String
+  item_category                                                      String?
+  item_brand                                                         String?
+  item_model_number                                                  String?
+  item_serial_number                                                 String?
+  item_features                                                      String?
+  condition                                                          product_condition                       @default(unknown)
+  quantity                                                           Int
+  unit_amount                                                        Decimal                                 @default(0) @db.Decimal(18, 2)
+  total_amount                                                       Decimal                                 @default(0) @db.Decimal(18, 2)
+  currency_code                                                      String                                  @default("JPY") @db.Char(3)
+  notes                                                              String?
+  retention_until                                                    DateTime?                               @db.Date
+  metadata                                                           Json                                    @default("{}")
+  created_by_user_id                                                 String?                                 @db.Uuid
+  updated_by_user_id                                                 String?                                 @db.Uuid
+  created_at                                                         DateTime                                @default(now()) @db.Timestamptz(6)
+  updated_at                                                         DateTime                                @default(now()) @db.Timestamptz(6)
+  deleted_at                                                         DateTime?                               @db.Timestamptz(6)
+  inventory_items                                                    inventory_items[]
+  users_secondhand_trade_records_created_by_user_idTousers           users?                                  @relation("secondhand_trade_records_created_by_user_idTousers", fields: [created_by_user_id], references: [id], onUpdate: NoAction)
+  users_secondhand_trade_records_identity_verified_by_user_idTousers users?                                  @relation("secondhand_trade_records_identity_verified_by_user_idTousers", fields: [identity_verified_by_user_id], references: [id], onUpdate: NoAction)
+  organizations                                                      organizations                           @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products                                                           products?                               @relation(fields: [product_id], references: [id], onUpdate: NoAction)
+  purchase_orders                                                    purchase_orders?                        @relation(fields: [purchase_order_id], references: [id], onUpdate: NoAction)
+  purchase_order_items                                               purchase_order_items?                   @relation(fields: [purchase_order_item_id], references: [id], onUpdate: NoAction)
+  receipts                                                           receipts?                               @relation(fields: [receipt_id], references: [id], onUpdate: NoAction)
+  suppliers                                                          suppliers?                              @relation(fields: [supplier_id], references: [id], onUpdate: NoAction)
+  users_secondhand_trade_records_updated_by_user_idTousers           users?                                  @relation("secondhand_trade_records_updated_by_user_idTousers", fields: [updated_by_user_id], references: [id], onUpdate: NoAction)
+
+  @@unique([organization_id, record_number], map: "secondhand_trade_records_record_number_unique")
+  @@index([deleted_at], map: "idx_secondhand_trade_records_deleted_at")
+  @@index([purchase_order_item_id], map: "idx_secondhand_trade_records_order_item")
+  @@index([organization_id, trade_date(sort: Desc)], map: "idx_secondhand_trade_records_org_trade_date")
+  @@index([product_id], map: "idx_secondhand_trade_records_product")
+  @@index([receipt_id], map: "idx_secondhand_trade_records_receipt")
+  @@index([supplier_id], map: "idx_secondhand_trade_records_supplier")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model security_events {
+  id                                               String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organization_id                                  String?                 @db.Uuid
+  user_id                                          String?                 @db.Uuid
+  severity                                         security_event_severity @default(info)
+  event_type                                       String
+  title                                            String
+  description                                      String?
+  metadata                                         Json                    @default("{}")
+  ip_address                                       String?                 @db.Inet
+  user_agent                                       String?
+  resolved_at                                      DateTime?               @db.Timestamptz(6)
+  resolved_by_user_id                              String?                 @db.Uuid
+  created_at                                       DateTime                @default(now()) @db.Timestamptz(6)
+  organizations                                    organizations?          @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_security_events_resolved_by_user_idTousers users?                  @relation("security_events_resolved_by_user_idTousers", fields: [resolved_by_user_id], references: [id], onUpdate: NoAction)
+  users_security_events_user_idTousers             users?                  @relation("security_events_user_idTousers", fields: [user_id], references: [id], onUpdate: NoAction)
+
+  @@index([created_at], map: "idx_security_events_created_at")
+  @@index([event_type], map: "idx_security_events_event_type")
+  @@index([organization_id], map: "idx_security_events_org")
+  @@index([severity], map: "idx_security_events_severity")
+  @@index([organization_id, resolved_at], map: "idx_security_events_unresolved")
+  @@index([user_id], map: "idx_security_events_user")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model sessions {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id            String    @db.Uuid
+  session_token_hash String    @unique(map: "sessions_token_hash_unique")
+  ip_address         String?   @db.Inet
+  user_agent         String?
+  expires_at         DateTime  @db.Timestamptz(6)
+  revoked_at         DateTime? @db.Timestamptz(6)
+  created_at         DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime  @default(now()) @db.Timestamptz(6)
+  users              users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([expires_at], map: "idx_sessions_expires_at")
+  @@index([revoked_at], map: "idx_sessions_revoked_at")
+  @@index([user_id], map: "idx_sessions_user")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model settlement_reports {
+  id                     String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organization_id        String                   @db.Uuid
+  channel_id             String?                  @db.Uuid
+  channel                sales_channel
+  external_settlement_id String?
+  status                 settlement_report_status @default(imported)
+  settlement_start_date  DateTime?                @db.Date
+  settlement_end_date    DateTime?                @db.Date
+  deposit_date           DateTime?                @db.Date
+  gross_sales_amount     Decimal                  @default(0) @db.Decimal(18, 2)
+  fee_amount             Decimal                  @default(0) @db.Decimal(18, 2)
+  refund_amount          Decimal                  @default(0) @db.Decimal(18, 2)
+  adjustment_amount      Decimal                  @default(0) @db.Decimal(18, 2)
+  net_deposit_amount     Decimal                  @default(0) @db.Decimal(18, 2)
+  currency_code          String                   @default("JPY") @db.Char(3)
+  raw_payload            Json?
+  imported_by_job_run_id String?                  @db.Uuid
+  imported_by_user_id    String?                  @db.Uuid
+  imported_at            DateTime                 @default(now()) @db.Timestamptz(6)
+  created_at             DateTime                 @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime                 @default(now()) @db.Timestamptz(6)
+  deleted_at             DateTime?                @db.Timestamptz(6)
+  channels               channels?                @relation(fields: [channel_id], references: [id], onUpdate: NoAction)
+  users                  users?                   @relation(fields: [imported_by_user_id], references: [id], onUpdate: NoAction)
+  job_runs               job_runs?                @relation(fields: [organization_id, imported_by_job_run_id], references: [organization_id, id], onDelete: NoAction, onUpdate: NoAction, map: "settlement_reports_job_run_same_org")
+  organizations          organizations            @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([organization_id, id], map: "settlement_reports_org_id_unique")
+  @@unique([organization_id, channel, external_settlement_id], map: "settlement_reports_unique_external")
+  @@index([organization_id, channel], map: "idx_settlement_reports_channel")
+  @@index([organization_id, deposit_date(sort: Desc)], map: "idx_settlement_reports_deposit_date")
+  @@index([organization_id, status], map: "idx_settlement_reports_org_status")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model shipments {
+  id                                                String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organization_id                                   String               @db.Uuid
+  order_id                                          String?              @db.Uuid
+  shipment_status                                   shipment_status      @default(pending)
+  carrier                                           String?
+  service_level                                     String?
+  tracking_number                                   String?
+  shipping_label_url                                String?
+  shipping_cost_amount                              Decimal?             @db.Decimal(18, 2)
+  currency_code                                     String               @default("JPY") @db.Char(3)
+  shipped_at                                        DateTime?            @db.Timestamptz(6)
+  delivered_at                                      DateTime?            @db.Timestamptz(6)
+  raw_payload                                       Json?
+  created_at                                        DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at                                        DateTime             @default(now()) @db.Timestamptz(6)
+  deleted_at                                        DateTime?            @db.Timestamptz(6)
+  accounting_entries                                accounting_entries[]
+  orders_shipments_order_idToorders                 orders?              @relation("shipments_order_idToorders", fields: [order_id], references: [id], onUpdate: NoAction)
+  orders_shipments_organization_id_order_idToorders orders?              @relation("shipments_organization_id_order_idToorders", fields: [organization_id, order_id], references: [organization_id, id], onDelete: NoAction, onUpdate: NoAction, map: "shipments_order_same_org")
+  organizations                                     organizations        @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([organization_id, id], map: "shipments_org_id_unique")
+  @@index([order_id], map: "idx_shipments_order")
+  @@index([organization_id, shipment_status], map: "idx_shipments_org_status")
+  @@index([tracking_number], map: "idx_shipments_tracking")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model sourcing_candidates {
+  id                                                                String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organization_id                                                   String                    @db.Uuid
+  product_id                                                        String?                   @db.Uuid
+  status                                                            sourcing_candidate_status @default(new)
+  source_channel                                                    sales_channel
+  source_product_id                                                 String?
+  source_url                                                        String?
+  source_title                                                      String
+  source_condition                                                  product_condition         @default(unknown)
+  source_price_amount                                               Decimal                   @db.Decimal(18, 2)
+  source_shipping_amount                                            Decimal                   @default(0) @db.Decimal(18, 2)
+  source_point_value_amount                                         Decimal                   @default(0) @db.Decimal(18, 2)
+  target_channel                                                    sales_channel             @default(amazon_jp)
+  target_product_id                                                 String?
+  target_url                                                        String?
+  target_expected_price_amount                                      Decimal?                  @db.Decimal(18, 2)
+  estimated_platform_fee_amount                                     Decimal?                  @db.Decimal(18, 2)
+  estimated_fba_fee_amount                                          Decimal?                  @db.Decimal(18, 2)
+  estimated_shipping_amount                                         Decimal?                  @db.Decimal(18, 2)
+  estimated_packaging_amount                                        Decimal?                  @db.Decimal(18, 2)
+  estimated_profit_amount                                           Decimal?                  @db.Decimal(18, 2)
+  estimated_roi                                                     Decimal?                  @db.Decimal(8, 4)
+  estimated_profit_margin                                           Decimal?                  @db.Decimal(8, 4)
+  break_even_price_amount                                           Decimal?                  @db.Decimal(18, 2)
+  recommended_max_purchase_quantity                                 Int?
+  expires_at                                                        DateTime?                 @db.Timestamptz(6)
+  discovered_by_job_run_id                                          String?                   @db.Uuid
+  discovered_by_user_id                                             String?                   @db.Uuid
+  approved_by_user_id                                               String?                   @db.Uuid
+  approved_at                                                       DateTime?                 @db.Timestamptz(6)
+  rejected_reason                                                   String?
+  raw_payload                                                       Json?
+  created_at                                                        DateTime                  @default(now()) @db.Timestamptz(6)
+  updated_at                                                        DateTime                  @default(now()) @db.Timestamptz(6)
+  deleted_at                                                        DateTime?                 @db.Timestamptz(6)
+  ai_scores                                                         ai_scores[]
+  inventory_items                                                   inventory_items[]
+  purchase_order_items                                              purchase_order_items[]
+  purchase_orders                                                   purchase_orders[]
+  users_sourcing_candidates_approved_by_user_idTousers              users?                    @relation("sourcing_candidates_approved_by_user_idTousers", fields: [approved_by_user_id], references: [id], onUpdate: NoAction)
+  users_sourcing_candidates_discovered_by_user_idTousers            users?                    @relation("sourcing_candidates_discovered_by_user_idTousers", fields: [discovered_by_user_id], references: [id], onUpdate: NoAction)
+  job_runs                                                          job_runs?                 @relation(fields: [organization_id, discovered_by_job_run_id], references: [organization_id, id], onDelete: NoAction, onUpdate: NoAction, map: "sourcing_candidates_job_run_same_org")
+  organizations                                                     organizations             @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products_sourcing_candidates_product_idToproducts                 products?                 @relation("sourcing_candidates_product_idToproducts", fields: [product_id], references: [id], onUpdate: NoAction)
+  products_sourcing_candidates_organization_id_product_idToproducts products?                 @relation("sourcing_candidates_organization_id_product_idToproducts", fields: [organization_id, product_id], references: [organization_id, id], onDelete: NoAction, onUpdate: NoAction, map: "sourcing_candidates_product_same_org")
+
+  @@index([organization_id, created_at(sort: Desc)], map: "idx_sourcing_candidates_created_at")
+  @@index([organization_id, status], map: "idx_sourcing_candidates_org_status")
+  @@index([product_id], map: "idx_sourcing_candidates_product")
+  @@index([organization_id, estimated_profit_amount(sort: Desc)], map: "idx_sourcing_candidates_profit")
+  @@index([organization_id, estimated_roi(sort: Desc)], map: "idx_sourcing_candidates_roi")
+  @@index([organization_id, source_channel, source_product_id], map: "idx_sourcing_candidates_source")
+  @@index([organization_id, target_channel, target_product_id], map: "idx_sourcing_candidates_target")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model suppliers {
+  id                                        String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organization_id                           String                     @db.Uuid
+  supplier_type                             supplier_type              @default(business)
+  name                                      String
+  legal_name                                String?
+  name_kana                                 String?
+  contact_name                              String?
+  email                                     String?
+  phone                                     String?
+  postal_code                               String?
+  prefecture                                String?
+  city                                      String?
+  address_line1                             String?
+  address_line2                             String?
+  country_code                              String                     @default("JP") @db.Char(2)
+  marketplace_channel                       sales_channel?
+  marketplace_seller_id                     String?
+  marketplace_seller_url                    String?
+  registration_number                       String?
+  antique_dealer_permit_number              String?
+  payment_terms                             String?
+  notes                                     String?
+  metadata                                  Json                       @default("{}")
+  created_by_user_id                        String?                    @db.Uuid
+  updated_by_user_id                        String?                    @db.Uuid
+  created_at                                DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at                                DateTime                   @default(now()) @db.Timestamptz(6)
+  deleted_at                                DateTime?                  @db.Timestamptz(6)
+  inventory_items                           inventory_items[]
+  purchase_orders                           purchase_orders[]
+  receipts                                  receipts[]
+  secondhand_trade_records                  secondhand_trade_records[]
+  users_suppliers_created_by_user_idTousers users?                     @relation("suppliers_created_by_user_idTousers", fields: [created_by_user_id], references: [id], onUpdate: NoAction)
+  organizations                             organizations              @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_suppliers_updated_by_user_idTousers users?                     @relation("suppliers_updated_by_user_idTousers", fields: [updated_by_user_id], references: [id], onUpdate: NoAction)
+
+  @@unique([organization_id, marketplace_channel, marketplace_seller_id], map: "suppliers_marketplace_seller_unique")
+  @@index([deleted_at], map: "idx_suppliers_deleted_at")
+  @@index([organization_id, marketplace_channel, marketplace_seller_id], map: "idx_suppliers_marketplace")
+  @@index([organization_id], map: "idx_suppliers_org")
+  @@index([organization_id, supplier_type], map: "idx_suppliers_type")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model tax_summary_reports {
+  id                              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organization_id                 String            @db.Uuid
+  period_type                     tax_report_period
+  fiscal_year                     Int
+  period_start                    DateTime          @db.Date
+  period_end                      DateTime          @db.Date
+  sales_amount                    Decimal           @default(0) @db.Decimal(18, 2)
+  purchase_amount                 Decimal           @default(0) @db.Decimal(18, 2)
+  cost_of_goods_sold_amount       Decimal           @default(0) @db.Decimal(18, 2)
+  fee_amount                      Decimal           @default(0) @db.Decimal(18, 2)
+  shipping_expense_amount         Decimal           @default(0) @db.Decimal(18, 2)
+  inventory_ending_amount         Decimal           @default(0) @db.Decimal(18, 2)
+  taxable_sales_amount            Decimal           @default(0) @db.Decimal(18, 2)
+  consumption_tax_estimate_amount Decimal           @default(0) @db.Decimal(18, 2)
+  profit_estimate_amount          Decimal           @default(0) @db.Decimal(18, 2)
+  notes                           String?
+  metadata                        Json              @default("{}")
+  created_by_job_run_id           String?           @db.Uuid
+  created_at                      DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at                      DateTime          @default(now()) @db.Timestamptz(6)
+  deleted_at                      DateTime?         @db.Timestamptz(6)
+  job_runs                        job_runs?         @relation(fields: [organization_id, created_by_job_run_id], references: [organization_id, id], onDelete: NoAction, onUpdate: NoAction, map: "tax_summary_reports_job_run_same_org")
+  organizations                   organizations     @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([organization_id, period_type, fiscal_year, period_start, period_end], map: "tax_summary_reports_unique_period")
+  @@index([organization_id, fiscal_year, period_start(sort: Desc)], map: "idx_tax_summary_reports_org_period")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model usage_logs {
+  id                    String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organization_id       String        @db.Uuid
+  user_id               String?       @db.Uuid
+  provider              api_provider
+  usage_type            String
+  quantity              Decimal       @default(1) @db.Decimal(18, 6)
+  unit                  String        @default("request")
+  cost_amount           Decimal?      @db.Decimal(18, 6)
+  cost_currency         String?       @db.Char(3)
+  related_resource_type String?
+  related_resource_id   String?       @db.Uuid
+  metadata              Json          @default("{}")
+  occurred_at           DateTime      @default(now()) @db.Timestamptz(6)
+  created_at            DateTime      @default(now()) @db.Timestamptz(6)
+  organizations         organizations @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users                 users?        @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+
+  @@index([occurred_at], map: "idx_usage_logs_occurred_at")
+  @@index([organization_id], map: "idx_usage_logs_org")
+  @@index([organization_id, provider], map: "idx_usage_logs_provider")
+  @@index([organization_id, usage_type], map: "idx_usage_logs_usage_type")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model users {
+  id                                                                                    String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email                                                                                 String
+  email_normalized                                                                      String                       @unique(map: "users_email_normalized_unique")
+  name                                                                                  String?
+  avatar_url                                                                            String?
+  password_hash                                                                         String?
+  email_verified_at                                                                     DateTime?                    @db.Timestamptz(6)
+  last_login_at                                                                         DateTime?                    @db.Timestamptz(6)
+  created_at                                                                            DateTime                     @default(now()) @db.Timestamptz(6)
+  updated_at                                                                            DateTime                     @default(now()) @db.Timestamptz(6)
+  deleted_at                                                                            DateTime?                    @db.Timestamptz(6)
+  accounting_entries                                                                    accounting_entries[]
+  accounting_exports                                                                    accounting_exports[]
+  ai_scores                                                                             ai_scores[]
+  alerts_alerts_created_by_user_idTousers                                               alerts[]                     @relation("alerts_created_by_user_idTousers")
+  alerts_alerts_updated_by_user_idTousers                                               alerts[]                     @relation("alerts_updated_by_user_idTousers")
+  api_credential_access_logs                                                            api_credential_access_logs[]
+  api_credentials_api_credentials_created_by_user_idTousers                             api_credentials[]            @relation("api_credentials_created_by_user_idTousers")
+  api_credentials_api_credentials_updated_by_user_idTousers                             api_credentials[]            @relation("api_credentials_updated_by_user_idTousers")
+  audit_logs                                                                            audit_logs[]
+  channel_product_matches                                                               channel_product_matches[]
+  channels_channels_created_by_user_idTousers                                           channels[]                   @relation("channels_created_by_user_idTousers")
+  channels_channels_updated_by_user_idTousers                                           channels[]                   @relation("channels_updated_by_user_idTousers")
+  inventory_items_inventory_items_created_by_user_idTousers                             inventory_items[]            @relation("inventory_items_created_by_user_idTousers")
+  inventory_items_inventory_items_updated_by_user_idTousers                             inventory_items[]            @relation("inventory_items_updated_by_user_idTousers")
+  inventory_movements                                                                   inventory_movements[]
+  job_runs                                                                              job_runs[]
+  jobs_jobs_created_by_user_idTousers                                                   jobs[]                       @relation("jobs_created_by_user_idTousers")
+  jobs_jobs_updated_by_user_idTousers                                                   jobs[]                       @relation("jobs_updated_by_user_idTousers")
+  listings_listings_created_by_user_idTousers                                           listings[]                   @relation("listings_created_by_user_idTousers")
+  listings_listings_updated_by_user_idTousers                                           listings[]                   @relation("listings_updated_by_user_idTousers")
+  login_events                                                                          login_events[]
+  notification_channels_notification_channels_created_by_user_idTousers                 notification_channels[]      @relation("notification_channels_created_by_user_idTousers")
+  notification_channels_notification_channels_updated_by_user_idTousers                 notification_channels[]      @relation("notification_channels_updated_by_user_idTousers")
+  organization_invitations_organization_invitations_accepted_by_user_idTousers          organization_invitations[]   @relation("organization_invitations_accepted_by_user_idTousers")
+  organization_invitations_organization_invitations_invited_by_user_idTousers           organization_invitations[]   @relation("organization_invitations_invited_by_user_idTousers")
+  organization_members_organization_members_invited_by_user_idTousers                   organization_members[]       @relation("organization_members_invited_by_user_idTousers")
+  organization_members_organization_members_user_idTousers                              organization_members[]       @relation("organization_members_user_idTousers")
+  organizations                                                                         organizations[]
+  products_products_created_by_user_idTousers                                           products[]                   @relation("products_created_by_user_idTousers")
+  products_products_updated_by_user_idTousers                                           products[]                   @relation("products_updated_by_user_idTousers")
+  purchase_orders_purchase_orders_created_by_user_idTousers                             purchase_orders[]            @relation("purchase_orders_created_by_user_idTousers")
+  purchase_orders_purchase_orders_updated_by_user_idTousers                             purchase_orders[]            @relation("purchase_orders_updated_by_user_idTousers")
+  receipts_receipts_inspected_by_user_idTousers                                         receipts[]                   @relation("receipts_inspected_by_user_idTousers")
+  receipts_receipts_received_by_user_idTousers                                          receipts[]                   @relation("receipts_received_by_user_idTousers")
+  secondhand_trade_records_secondhand_trade_records_created_by_user_idTousers           secondhand_trade_records[]   @relation("secondhand_trade_records_created_by_user_idTousers")
+  secondhand_trade_records_secondhand_trade_records_identity_verified_by_user_idTousers secondhand_trade_records[]   @relation("secondhand_trade_records_identity_verified_by_user_idTousers")
+  secondhand_trade_records_secondhand_trade_records_updated_by_user_idTousers           secondhand_trade_records[]   @relation("secondhand_trade_records_updated_by_user_idTousers")
+  security_events_security_events_resolved_by_user_idTousers                            security_events[]            @relation("security_events_resolved_by_user_idTousers")
+  security_events_security_events_user_idTousers                                        security_events[]            @relation("security_events_user_idTousers")
+  sessions                                                                              sessions[]
+  settlement_reports                                                                    settlement_reports[]
+  sourcing_candidates_sourcing_candidates_approved_by_user_idTousers                    sourcing_candidates[]        @relation("sourcing_candidates_approved_by_user_idTousers")
+  sourcing_candidates_sourcing_candidates_discovered_by_user_idTousers                  sourcing_candidates[]        @relation("sourcing_candidates_discovered_by_user_idTousers")
+  suppliers_suppliers_created_by_user_idTousers                                         suppliers[]                  @relation("suppliers_created_by_user_idTousers")
+  suppliers_suppliers_updated_by_user_idTousers                                         suppliers[]                  @relation("suppliers_updated_by_user_idTousers")
+  usage_logs                                                                            usage_logs[]
+
+  @@index([deleted_at], map: "idx_users_deleted_at")
+}
+
+enum accounting_entry_status {
+  draft
+  ready
+  exported
+  synced
+  excluded
+  error
+}
+
+enum accounting_entry_type {
+  sale
+  purchase
+  cost_of_goods_sold
+  inventory_adjustment
+  platform_fee
+  shipping_income
+  shipping_expense
+  refund
+  tax
+  cash_transfer
+  other
+}
+
+enum accounting_export_format {
+  freee_csv
+  money_forward_csv
+  yayoi_csv
+  generic_csv
+  freee_api
+  other
+}
+
+enum accounting_export_status {
+  pending
+  processing
+  completed
+  failed
+  cancelled
+}
+
+enum ai_judgement {
+  a
+  b
+  c
+  ng
+  unknown
+}
+
+enum alert_delivery_status {
+  pending
+  sent
+  failed
+  skipped
+  throttled
+}
+
+enum alert_severity {
+  info
+  warning
+  critical
+}
+
+enum alert_status {
+  active
+  muted
+  resolved
+  disabled
+}
+
+enum api_credential_status {
+  active
+  expired
+  revoked
+  error
+  disabled
+}
+
+enum api_provider {
+  amazon_sp_api
+  keepa
+  rakuten
+  yahoo_shopping
+  yahoo_auction
+  ebay
+  freee
+  money_forward
+  openai
+  other
+}
+
+enum audit_action_type {
+  create
+  read
+  update
+  delete
+  export
+  login
+  logout
+  connect_api
+  disconnect_api
+  run_job
+  change_role
+  billing_change
+  other
+}
+
+enum billing_interval {
+  monthly
+  yearly
+  one_time
+}
+
+enum billing_invoice_item_type {
+  subscription
+  usage
+  adjustment
+  discount
+  tax
+  other
+}
+
+enum billing_invoice_status {
+  draft
+  open
+  paid
+  void
+  uncollectible
+  failed
+}
+
+enum billing_plan_status {
+  active
+  archived
+}
+
+enum billing_subscription_status {
+  trialing
+  active
+  past_due
+  paused
+  cancelled
+  unpaid
+}
+
+enum billing_usage_limit_period {
+  daily
+  weekly
+  monthly
+  yearly
+  lifetime
+}
+
+enum billing_usage_limit_scope {
+  organization
+  subscription
+  plan
+  job
+  api
+}
+
+enum cashflow_snapshot_period {
+  daily
+  weekly
+  monthly
+}
+
+enum cross_channel_opportunity_type {
+  buy_low_sell_high
+  price_gap_watch
+  restock_watch
+  dead_stock_exit
+  manual_review
+}
+
+enum encryption_provider {
+  aws_kms
+  gcp_kms
+  azure_key_vault
+  hashicorp_vault
+  local_dev
+}
+
+enum fee_type {
+  platform_fee
+  payment_fee
+  fba_fee
+  shipping_fee
+  storage_fee
+  refund_fee
+  promotion_fee
+  other
+}
+
+enum inventory_movement_type {
+  purchase
+  receive
+  inspect
+  adjust
+  list
+  reserve
+  sell
+  return
+  mark_dead_stock
+  dispose
+  transfer
+  cancel
+}
+
+enum inventory_status {
+  candidate
+  purchased
+  received
+  inspected
+  listed
+  reserved
+  sold
+  returned
+  dead_stock
+  disposed
+}
+
+enum job_run_log_level {
+  debug
+  info
+  warning
+  error
+}
+
+enum job_run_status {
+  scheduled
+  queued
+  running
+  succeeded
+  failed
+  cancelled
+  retrying
+  timed_out
+  skipped
+}
+
+enum job_schedule_type {
+  manual
+  cron
+  interval
+  one_time
+  event
+}
+
+enum job_status {
+  active
+  paused
+  disabled
+  archived
+}
+
+enum job_trigger_type {
+  schedule
+  manual
+  retry
+  event
+  api
+  system
+}
+
+enum listing_status {
+  draft
+  active
+  paused
+  sold
+  ended
+  error
+  archived
+}
+
+enum notification_channel_status {
+  active
+  disabled
+  error
+}
+
+enum notification_channel_type {
+  email
+  slack
+  webhook
+  line
+  sms
+  discord
+  other
+}
+
+enum order_status {
+  pending
+  paid
+  shipped
+  delivered
+  cancelled
+  returned
+  refunded
+  unknown
+}
+
+enum organization_member_role {
+  owner
+  admin
+  member
+}
+
+enum organization_member_status {
+  invited
+  active
+  suspended
+  left
+}
+
+enum organization_status {
+  active
+  suspended
+  closed
+}
+
+enum product_condition {
+  new
+  like_new
+  very_good
+  good
+  acceptable
+  used
+  junk
+  unknown
+}
+
+enum product_identifier_type {
+  jan
+  ean
+  upc
+  isbn
+  asin
+  sku
+  model_number
+  source_product_id
+  channel_product_id
+  other
+}
+
+enum product_match_method {
+  jan_exact
+  asin_exact
+  sku_exact
+  model_number_exact
+  title_similarity
+  image_similarity
+  manual
+  ai_suggested
+  unknown
+}
+
+enum product_status {
+  active
+  archived
+  prohibited
+  unknown
+}
+
+enum purchase_order_status {
+  draft
+  ordered
+  partially_received
+  received
+  cancelled
+  closed
+}
+
+enum receipt_status {
+  pending
+  received
+  partially_inspected
+  inspected
+  rejected
+  cancelled
+}
+
+enum return_status {
+  requested
+  approved
+  received
+  refunded
+  rejected
+  closed
+}
+
+enum sales_channel {
+  amazon_jp
+  rakuten
+  yahoo_shopping
+  yahoo_auction
+  mercari
+  ebay
+  store
+  other
+}
+
+enum secondhand_identity_verification_method {
+  driver_license
+  my_number_card
+  passport
+  residence_card
+  health_insurance_card
+  corporate_registry
+  platform_verified
+  other
+  not_required
+}
+
+enum secondhand_trade_direction {
+  purchase
+  return_to_supplier
+  correction
+}
+
+enum security_event_severity {
+  info
+  warning
+  critical
+}
+
+enum settlement_report_status {
+  imported
+  matched
+  partially_matched
+  unmatched
+  closed
+}
+
+enum shipment_status {
+  pending
+  label_created
+  shipped
+  in_transit
+  delivered
+  lost
+  cancelled
+  unknown
+}
+
+enum sourcing_candidate_status {
+  new
+  watching
+  approved
+  rejected
+  purchased
+  expired
+  archived
+}
+
+enum supplier_type {
+  business
+  individual
+  marketplace_seller
+  auction_house
+  recycle_shop
+  other
+}
+
+enum tax_report_period {
+  monthly
+  quarterly
+  yearly
+}

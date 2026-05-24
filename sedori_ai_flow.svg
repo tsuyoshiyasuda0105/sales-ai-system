@@ -1,0 +1,222 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <defs>
+    <style>
+      .bg { fill: #f7f8fb; }
+      .title { font: 700 46px "Yu Gothic", "Meiryo", Arial, sans-serif; fill: #172033; }
+      .subtitle { font: 400 20px "Yu Gothic", "Meiryo", Arial, sans-serif; fill: #5d687a; }
+      .section { font: 700 24px "Yu Gothic", "Meiryo", Arial, sans-serif; fill: #1c2638; }
+      .body { font: 500 18px "Yu Gothic", "Meiryo", Arial, sans-serif; fill: #263246; }
+      .small { font: 500 14px "Yu Gothic", "Meiryo", Arial, sans-serif; fill: #5a6678; }
+      .tiny { font: 500 12px "Yu Gothic", "Meiryo", Arial, sans-serif; fill: #657083; }
+      .card { fill: #ffffff; stroke: #dce2ea; stroke-width: 1.5; }
+      .soft { fill: #eef3f8; }
+      .blue { fill: #2663eb; }
+      .green { fill: #0f9f6e; }
+      .orange { fill: #d97706; }
+      .red { fill: #dc2626; }
+      .ink { fill: #172033; }
+      .muted { fill: #6c7585; }
+      .line { stroke: #9aa7b8; stroke-width: 3; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+      .dash { stroke: #c08a3e; stroke-width: 2.5; fill: none; stroke-linecap: round; stroke-dasharray: 8 8; }
+      .badgeText { font: 700 13px "Yu Gothic", "Meiryo", Arial, sans-serif; fill: #ffffff; }
+      .num { font: 700 17px Arial, sans-serif; fill: #ffffff; }
+    </style>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#1d283a" flood-opacity="0.10"/>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#9aa7b8"/>
+    </marker>
+    <marker id="arrowOrange" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#c08a3e"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" width="1600" height="900"/>
+  <rect x="58" y="44" width="1484" height="812" rx="22" fill="#ffffff" filter="url(#shadow)"/>
+  <rect x="58" y="44" width="1484" height="812" rx="22" fill="#ffffff" stroke="#e6ebf1" stroke-width="1.5"/>
+
+  <text x="96" y="112" class="title">せどりAIシステム：仕入れ・販売・会計データフロー</text>
+  <text x="98" y="151" class="subtitle">APIを中心にデータを取得し、CSV・OCR・手動入力で補完。スクレイピングは規約確認が必要な補助手段として扱う。</text>
+
+  <g transform="translate(96 202)">
+    <rect class="card" x="0" y="0" width="276" height="430" rx="16"/>
+    <circle class="blue" cx="32" cy="36" r="18"/>
+    <text class="num" x="27" y="42">1</text>
+    <text class="section" x="64" y="44">仕入れ候補</text>
+    <text class="small" x="22" y="78">価格差・需要・競合を見る入口</text>
+
+    <rect class="soft" x="22" y="108" width="232" height="54" rx="10"/>
+    <text class="body" x="40" y="132">商品検索 / JAN入力</text>
+    <text class="tiny" x="40" y="153">楽天・Yahoo・店舗バーコード</text>
+
+    <rect class="soft" x="22" y="178" width="232" height="54" rx="10"/>
+    <text class="body" x="40" y="202">仕入れ価格取得</text>
+    <text class="tiny" x="40" y="223">API / CSV / 手動入力</text>
+
+    <rect class="soft" x="22" y="248" width="232" height="54" rx="10"/>
+    <text class="body" x="40" y="272">候補リスト化</text>
+    <text class="tiny" x="40" y="293">商品名・URL・価格・送料</text>
+
+    <g transform="translate(22 333)">
+      <rect class="blue" x="0" y="0" width="62" height="28" rx="14"/>
+      <text class="badgeText" x="18" y="19">API</text>
+      <rect class="green" x="72" y="0" width="62" height="28" rx="14"/>
+      <text class="badgeText" x="18" y="19" transform="translate(72 0)">CSV</text>
+      <rect class="orange" x="144" y="0" width="88" height="28" rx="14"/>
+      <text class="badgeText" x="15" y="19" transform="translate(144 0)">手動補完</text>
+    </g>
+    <text class="tiny" x="22" y="391">主な取得元：楽天API、Yahoo!ショッピングAPI、店舗/ECのCSV</text>
+  </g>
+
+  <g transform="translate(402 202)">
+    <rect class="card" x="0" y="0" width="276" height="430" rx="16"/>
+    <circle class="blue" cx="32" cy="36" r="18"/>
+    <text class="num" x="27" y="42">2</text>
+    <text class="section" x="64" y="44">市場データ</text>
+    <text class="small" x="22" y="78">Amazon側で売れるか確認</text>
+
+    <rect class="soft" x="22" y="108" width="232" height="54" rx="10"/>
+    <text class="body" x="40" y="132">ASIN / JAN照合</text>
+    <text class="tiny" x="40" y="153">Catalog Items API</text>
+
+    <rect class="soft" x="22" y="178" width="232" height="54" rx="10"/>
+    <text class="body" x="40" y="202">価格・出品者数</text>
+    <text class="tiny" x="40" y="223">Product Pricing / Keepa</text>
+
+    <rect class="soft" x="22" y="248" width="232" height="54" rx="10"/>
+    <text class="body" x="40" y="272">需要・ランキング推移</text>
+    <text class="tiny" x="40" y="293">Sales Rank / 価格履歴</text>
+
+    <g transform="translate(22 333)">
+      <rect class="blue" x="0" y="0" width="62" height="28" rx="14"/>
+      <text class="badgeText" x="18" y="19">API</text>
+      <rect class="ink" x="72" y="0" width="74" height="28" rx="14"/>
+      <text class="badgeText" x="15" y="19" transform="translate(72 0)">Keepa</text>
+    </g>
+    <text class="tiny" x="22" y="391">Amazon SP-APIで現在値、Keepaで履歴・推移を補強</text>
+  </g>
+
+  <g transform="translate(708 202)">
+    <rect class="card" x="0" y="0" width="276" height="430" rx="16"/>
+    <circle class="green" cx="32" cy="36" r="18"/>
+    <text class="num" x="27" y="42">3</text>
+    <text class="section" x="64" y="44">AI仕入れ判定</text>
+    <text class="small" x="22" y="78">数字をスコア化して判断</text>
+
+    <rect class="soft" x="22" y="108" width="232" height="54" rx="10"/>
+    <text class="body" x="40" y="132">利益・ROI計算</text>
+    <text class="tiny" x="40" y="153">手数料・送料・梱包費込み</text>
+
+    <rect class="soft" x="22" y="178" width="232" height="54" rx="10"/>
+    <text class="body" x="40" y="202">回転・資金繰り</text>
+    <text class="tiny" x="40" y="223">在庫日数・支払予定日</text>
+
+    <rect class="soft" x="22" y="248" width="232" height="54" rx="10"/>
+    <text class="body" x="40" y="272">A/B/C判定</text>
+    <text class="tiny" x="40" y="293">仕入れ数・損切り価格を提案</text>
+
+    <g transform="translate(22 333)">
+      <rect class="green" x="0" y="0" width="76" height="28" rx="14"/>
+      <text class="badgeText" x="17" y="19">GPT</text>
+      <rect class="blue" x="86" y="0" width="104" height="28" rx="14"/>
+      <text class="badgeText" x="14" y="19" transform="translate(86 0)">ルール計算</text>
+    </g>
+    <text class="tiny" x="22" y="391">AIは最終判断の説明役。計算式はシステム側で固定する</text>
+  </g>
+
+  <g transform="translate(1014 202)">
+    <rect class="card" x="0" y="0" width="276" height="430" rx="16"/>
+    <circle class="orange" cx="32" cy="36" r="18"/>
+    <text class="num" x="27" y="42">4</text>
+    <text class="section" x="64" y="44">販売・在庫</text>
+    <text class="small" x="22" y="78">売れた後のデータを回収</text>
+
+    <rect class="soft" x="22" y="108" width="232" height="54" rx="10"/>
+    <text class="body" x="40" y="132">在庫ステータス</text>
+    <text class="tiny" x="40" y="153">到着・検品・出品・販売済</text>
+
+    <rect class="soft" x="22" y="178" width="232" height="54" rx="10"/>
+    <text class="body" x="40" y="202">注文・発送取得</text>
+    <text class="tiny" x="40" y="223">Orders / FBA Inventory</text>
+
+    <rect class="soft" x="22" y="248" width="232" height="54" rx="10"/>
+    <text class="body" x="40" y="272">手数料・入金</text>
+    <text class="tiny" x="40" y="293">Finances / Reports</text>
+
+    <g transform="translate(22 333)">
+      <rect class="blue" x="0" y="0" width="62" height="28" rx="14"/>
+      <text class="badgeText" x="18" y="19">API</text>
+      <rect class="green" x="72" y="0" width="62" height="28" rx="14"/>
+      <text class="badgeText" x="18" y="19" transform="translate(72 0)">CSV</text>
+      <rect class="red" x="144" y="0" width="70" height="28" rx="14"/>
+      <text class="badgeText" x="14" y="19" transform="translate(144 0)">注意</text>
+    </g>
+    <text class="tiny" x="22" y="391">メルカリ等は自動操作を避け、CSV/手動補完から始める</text>
+  </g>
+
+  <g transform="translate(1320 202)">
+    <rect class="card" x="0" y="0" width="142" height="430" rx="16"/>
+    <circle class="green" cx="32" cy="36" r="18"/>
+    <text class="num" x="27" y="42">5</text>
+    <text class="section" x="22" y="84">会計</text>
+    <text class="small" x="22" y="114">利益を確定</text>
+
+    <rect class="soft" x="18" y="146" width="106" height="50" rx="10"/>
+    <text class="small" x="34" y="168">売上</text>
+    <text class="tiny" x="34" y="187">入金</text>
+
+    <rect class="soft" x="18" y="212" width="106" height="50" rx="10"/>
+    <text class="small" x="34" y="234">原価</text>
+    <text class="tiny" x="34" y="253">仕入</text>
+
+    <rect class="soft" x="18" y="278" width="106" height="50" rx="10"/>
+    <text class="small" x="34" y="300">経費</text>
+    <text class="tiny" x="34" y="319">手数料</text>
+
+    <rect class="green" x="18" y="356" width="106" height="32" rx="16"/>
+    <text class="badgeText" x="39" y="377">freee</text>
+  </g>
+
+  <path class="line" d="M372 417 L395 417" marker-end="url(#arrow)"/>
+  <path class="line" d="M678 417 L701 417" marker-end="url(#arrow)"/>
+  <path class="line" d="M984 417 L1007 417" marker-end="url(#arrow)"/>
+  <path class="line" d="M1290 417 L1313 417" marker-end="url(#arrow)"/>
+
+  <g transform="translate(98 680)">
+    <rect x="0" y="0" width="1364" height="104" rx="18" fill="#f3f6fa" stroke="#dce2ea" stroke-width="1.5"/>
+    <text class="section" x="28" y="38">データ取得方針</text>
+
+    <g transform="translate(238 25)">
+      <rect class="blue" x="0" y="0" width="76" height="32" rx="16"/>
+      <text class="badgeText" x="24" y="21">API</text>
+      <text class="small" x="92" y="22">公式連携の主役。Amazon / 楽天 / Yahoo / eBay / freee</text>
+    </g>
+
+    <g transform="translate(238 63)">
+      <rect class="green" x="0" y="0" width="76" height="32" rx="16"/>
+      <text class="badgeText" x="24" y="21">CSV</text>
+      <text class="small" x="92" y="22">APIが弱い販路や会計補完に使う。メルカリ・ヤフオク・仕入れ履歴</text>
+    </g>
+
+    <g transform="translate(804 25)">
+      <rect class="orange" x="0" y="0" width="76" height="32" rx="16"/>
+      <text class="badgeText" x="19" y="21">OCR</text>
+      <text class="small" x="92" y="22">レシート・領収書・納品書を読み取り、仕入れ原価に紐づける</text>
+    </g>
+
+    <g transform="translate(804 63)">
+      <rect class="red" x="0" y="0" width="122" height="32" rx="16"/>
+      <text class="badgeText" x="18" y="21">スクレイピング</text>
+      <text class="small" x="138" y="22">最後の手段。規約・robots・負荷・販売リスクを確認して限定利用</text>
+    </g>
+  </g>
+
+  <path class="dash" d="M232 661 C232 636, 232 636, 232 620" marker-end="url(#arrowOrange)"/>
+  <path class="dash" d="M1150 661 C1150 636, 1150 636, 1150 620" marker-end="url(#arrowOrange)"/>
+  <text class="tiny" x="190" y="654">CSV/OCRで補完</text>
+  <text class="tiny" x="1094" y="654">会計へ戻す</text>
+
+  <text class="tiny" x="98" y="824">設計メモ：自動購入・自動出品ボットではなく、利益判定・在庫/資金繰り・会計連携を中核にする。</text>
+  <text class="tiny" x="1280" y="824">作成: Codex / 2026-05-24</text>
+</svg>

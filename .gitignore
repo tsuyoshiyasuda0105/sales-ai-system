@@ -1,0 +1,12 @@
+node_modules
+.next
+out
+dist
+coverage
+.env
+.env.local
+.env.*.local
+*.log
+prisma/dev.db
+*.tsbuildinfo
+migrated_from_new_project_2_*

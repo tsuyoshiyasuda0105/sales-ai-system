@@ -1,0 +1,172 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
+  <defs>
+    <style>
+      .bg { fill: #f6f7fa; }
+      .paper { fill: #ffffff; stroke: #e6ebf1; stroke-width: 1.5; }
+      .title { font: 700 44px "Yu Gothic", "Meiryo", Arial, sans-serif; fill: #162033; }
+      .subtitle { font: 400 20px "Yu Gothic", "Meiryo", Arial, sans-serif; fill: #5d6878; }
+      .section { font: 700 22px "Yu Gothic", "Meiryo", Arial, sans-serif; fill: #1b2536; }
+      .body { font: 600 17px "Yu Gothic", "Meiryo", Arial, sans-serif; fill: #253146; }
+      .small { font: 500 14px "Yu Gothic", "Meiryo", Arial, sans-serif; fill: #596579; }
+      .tiny { font: 500 12px "Yu Gothic", "Meiryo", Arial, sans-serif; fill: #657184; }
+      .card { fill: #ffffff; stroke: #dfe5ed; stroke-width: 1.4; }
+      .soft { fill: #f0f4f8; stroke: #cbd5e1; }
+      .apiFree { fill: #e8f5ef; stroke: #89c8ab; }
+      .apiPaid { fill: #fff2df; stroke: #ddb16f; }
+      .apiMixed { fill: #eef2ff; stroke: #9aa9e8; }
+      .risk { fill: #fff1f2; stroke: #ef9aa7; }
+      .db { fill: #eef6ff; stroke: #8bbce8; }
+      .job { fill: #f7efff; stroke: #bba1e8; }
+      .keepa { fill: #fff7ed; stroke: #f1b76a; }
+      .blue { fill: #2563eb; }
+      .green { fill: #0f9f6e; }
+      .orange { fill: #d97706; }
+      .purple { fill: #7c3aed; }
+      .dark { fill: #172033; }
+      .line { stroke: #9aa7b8; stroke-width: 3; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+      .badgeText { font: 700 13px "Yu Gothic", "Meiryo", Arial, sans-serif; fill: #ffffff; }
+      .num { font: 700 16px Arial, sans-serif; fill: #ffffff; }
+    </style>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#1d283a" flood-opacity="0.10"/>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#9aa7b8"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" width="1920" height="1080"/>
+  <rect class="paper" x="48" y="36" width="1824" height="1008" rx="26" filter="url(#shadow)"/>
+  <rect class="paper" x="48" y="36" width="1824" height="1008" rx="26"/>
+
+  <text x="92" y="98" class="title">せどりAIシステム統合概念図</text>
+  <text x="94" y="134" class="subtitle">業務フロー、技術設計、DB、スケジューラー、Keepa費用を1枚で整理。文字が重ならないよう余白を広めに確保。</text>
+
+  <g transform="translate(92 164)">
+    <rect class="soft" x="0" y="0" width="1736" height="66" rx="18"/>
+    <text class="section" x="26" y="42">技術方針</text>
+    <rect class="blue" x="142" y="17" width="188" height="34" rx="17"/>
+    <text class="badgeText" x="170" y="39">TypeScript / Node.js</text>
+    <rect class="green" x="348" y="17" width="118" height="34" rx="17"/>
+    <text class="badgeText" x="378" y="39">Next.js</text>
+    <rect class="dark" x="484" y="17" width="126" height="34" rx="17"/>
+    <text class="badgeText" x="518" y="39">Prisma</text>
+    <rect class="purple" x="628" y="17" width="178" height="34" rx="17"/>
+    <text class="badgeText" x="656" y="39">Redis + BullMQ</text>
+    <text class="small" x="838" y="32">DBはPostgreSQL。初期MVPはTypeScript中心、Pythonは分析が重くなった段階で追加。</text>
+    <text class="tiny" x="1492" y="40">料金は2026年5月時点目安</text>
+  </g>
+
+  <g transform="translate(92 272)">
+    <rect class="card" x="0" y="0" width="268" height="318" rx="18"/>
+    <circle class="blue" cx="30" cy="32" r="18"/><text class="num" x="25" y="38">1</text>
+    <text class="section" x="62" y="40">仕入れ先</text>
+    <text class="small" x="22" y="70">候補商品と仕入価格を集める</text>
+    <rect class="apiFree" x="22" y="92" width="224" height="36" rx="10"/><text class="body" x="38" y="115">楽天市場</text><text class="tiny" x="162" y="115">API 0円/月</text>
+    <rect class="apiFree" x="22" y="138" width="224" height="36" rx="10"/><text class="body" x="38" y="161">Yahoo!ショッピング</text><text class="tiny" x="162" y="161">API 0円/月</text>
+    <rect class="apiMixed" x="22" y="184" width="224" height="44" rx="10"/><text class="body" x="38" y="207">Amazon.co.jp</text><text class="tiny" x="38" y="222">大口 4,900円/月+税</text>
+    <rect class="risk" x="22" y="238" width="224" height="44" rx="10"/><text class="body" x="38" y="261">メルカリ / ヤフオク</text><text class="tiny" x="38" y="276">CSV/手動推奨・規約注意</text>
+  </g>
+
+  <g transform="translate(386 272)">
+    <rect class="card" x="0" y="0" width="268" height="318" rx="18"/>
+    <circle class="blue" cx="30" cy="32" r="18"/><text class="num" x="25" y="38">2</text>
+    <text class="section" x="62" y="40">市場・相場</text>
+    <text class="small" x="22" y="70">売れ行き・競合・価格履歴</text>
+    <rect class="apiPaid" x="22" y="92" width="224" height="50" rx="10"/><text class="body" x="38" y="115">Keepa API</text><text class="tiny" x="38" y="132">€49/月〜 約9,000円〜</text>
+    <rect class="apiMixed" x="22" y="154" width="224" height="46" rx="10"/><text class="body" x="38" y="177">Amazon SP-API</text><text class="tiny" x="38" y="194">価格・競合オファー・注文</text>
+    <rect class="apiFree" x="22" y="212" width="224" height="46" rx="10"/><text class="body" x="38" y="235">楽天/Yahoo API</text><text class="tiny" x="38" y="252">価格・送料・在庫有無</text>
+  </g>
+
+  <g transform="translate(680 272)">
+    <rect class="card" x="0" y="0" width="268" height="318" rx="18"/>
+    <circle class="green" cx="30" cy="32" r="18"/><text class="num" x="25" y="38">3</text>
+    <text class="section" x="62" y="40">AI仕入れ判定</text>
+    <text class="small" x="22" y="70">利益・需要・リスクを点数化</text>
+    <rect class="soft" x="22" y="92" width="224" height="40" rx="10"/><text class="body" x="38" y="117">利益 / ROI / 損益分岐</text>
+    <rect class="soft" x="22" y="144" width="224" height="40" rx="10"/><text class="body" x="38" y="169">需要 / 回転 / 季節性</text>
+    <rect class="soft" x="22" y="196" width="224" height="40" rx="10"/><text class="body" x="38" y="221">価格下落 / 競合リスク</text>
+    <rect class="apiMixed" x="22" y="248" width="224" height="44" rx="10"/><text class="body" x="38" y="271">GPT-5.5</text><text class="tiny" x="108" y="271">A/B/C判定・仕入数</text>
+  </g>
+
+  <g transform="translate(974 272)">
+    <rect class="card" x="0" y="0" width="268" height="318" rx="18"/>
+    <circle class="purple" cx="30" cy="32" r="18"/><text class="num" x="25" y="38">4</text>
+    <text class="section" x="62" y="40">仕入れ・在庫</text>
+    <text class="small" x="22" y="70">在庫マスターを正本にする</text>
+    <rect class="db" x="22" y="92" width="224" height="40" rx="10"/><text class="body" x="38" y="117">inventory_items</text>
+    <rect class="soft" x="22" y="144" width="224" height="40" rx="10"/><text class="body" x="38" y="169">入庫・検品・写真</text>
+    <rect class="soft" x="22" y="196" width="224" height="40" rx="10"/><text class="body" x="38" y="221">出品中・販売済・返品</text>
+    <rect class="risk" x="22" y="248" width="224" height="44" rx="10"/><text class="body" x="38" y="271">滞留/棚卸/古物台帳</text><text class="tiny" x="38" y="287">30/60/90日アラート</text>
+  </g>
+
+  <g transform="translate(1268 272)">
+    <rect class="card" x="0" y="0" width="268" height="318" rx="18"/>
+    <circle class="orange" cx="30" cy="32" r="18"/><text class="num" x="25" y="38">5</text>
+    <text class="section" x="62" y="40">販売・発送</text>
+    <text class="small" x="22" y="70">注文・入金・手数料を回収</text>
+    <rect class="apiMixed" x="22" y="92" width="224" height="48" rx="10"/><text class="body" x="38" y="115">Amazon販売</text><text class="tiny" x="38" y="132">Orders / FBA / Finances</text>
+    <rect class="apiMixed" x="22" y="152" width="224" height="48" rx="10"/><text class="body" x="38" y="175">Yahoo / eBay販売</text><text class="tiny" x="38" y="192">注文・在庫・発送API</text>
+    <rect class="risk" x="22" y="212" width="224" height="48" rx="10"/><text class="body" x="38" y="235">メルカリ販売</text><text class="tiny" x="38" y="252">自動操作は規約注意</text>
+  </g>
+
+  <g transform="translate(1562 272)">
+    <rect class="card" x="0" y="0" width="266" height="318" rx="18"/>
+    <circle class="green" cx="30" cy="32" r="18"/><text class="num" x="25" y="38">6</text>
+    <text class="section" x="62" y="40">会計・レポート</text>
+    <text class="small" x="22" y="70">利益確定・税務準備</text>
+    <rect class="apiMixed" x="22" y="92" width="222" height="48" rx="10"/><text class="body" x="38" y="115">freee API / CSV</text><text class="tiny" x="38" y="132">1,780円/月〜</text>
+    <rect class="db" x="22" y="152" width="222" height="48" rx="10"/><text class="body" x="38" y="175">accounting_entries</text><text class="tiny" x="38" y="192">売上/原価/送料/手数料</text>
+    <rect class="soft" x="22" y="212" width="222" height="48" rx="10"/><text class="body" x="38" y="235">棚卸・証憑保存</text><text class="tiny" x="38" y="252">領収書/OCR/請求書</text>
+  </g>
+
+  <path class="line" d="M360 431 L379 431" marker-end="url(#arrow)"/>
+  <path class="line" d="M654 431 L673 431" marker-end="url(#arrow)"/>
+  <path class="line" d="M948 431 L967 431" marker-end="url(#arrow)"/>
+  <path class="line" d="M1242 431 L1261 431" marker-end="url(#arrow)"/>
+  <path class="line" d="M1536 431 L1555 431" marker-end="url(#arrow)"/>
+
+  <g transform="translate(92 632)">
+    <rect class="job" x="0" y="0" width="1736" height="126" rx="18"/>
+    <text class="section" x="26" y="38">スケジューラー / タスク実行間隔</text>
+    <text class="body" x="330" y="34">BullMQ + Redis</text>
+    <text class="small" x="330" y="58">cronでジョブ投入、workerがAPI制限・リトライ・失敗履歴を管理</text>
+
+    <rect class="soft" x="330" y="76" width="210" height="34" rx="10"/>
+    <text class="small" x="350" y="98">6時間ごと：楽天/Yahoo候補</text>
+    <rect class="soft" x="560" y="76" width="210" height="34" rx="10"/>
+    <text class="small" x="588" y="98">即時：新規候補Keepa</text>
+    <rect class="soft" x="790" y="76" width="280" height="34" rx="10"/>
+    <text class="small" x="812" y="98">1日1回：Keepa監視/滞留チェック</text>
+    <rect class="soft" x="1090" y="76" width="230" height="34" rx="10"/>
+    <text class="small" x="1114" y="98">1時間ごと：Amazon同期</text>
+    <rect class="soft" x="1340" y="76" width="240" height="34" rx="10"/>
+    <text class="small" x="1366" y="98">毎日深夜：会計/AIレポート</text>
+  </g>
+
+  <g transform="translate(92 790)">
+    <rect class="keepa" x="0" y="0" width="850" height="104" rx="18"/>
+    <text class="section" x="26" y="36">Keepa費用と運用方針</text>
+    <text class="body" x="270" y="33">初期MVP</text>
+    <text class="small" x="350" y="33">€49/月〜 約9,000円〜</text>
+    <text class="tiny" x="350" y="52">無料APIで粗く絞り、利益見込み候補だけKeepa取得</text>
+    <text class="body" x="270" y="78">拡張時</text>
+    <text class="small" x="350" y="78">€129/月〜</text>
+    <text class="tiny" x="350" y="97">大量カテゴリ探索・複数ユーザーSaaS時に検討</text>
+  </g>
+
+  <g transform="translate(978 790)">
+    <rect class="db" x="0" y="0" width="850" height="104" rx="18"/>
+    <text class="section" x="26" y="36">データベース設計 PostgreSQL</text>
+    <text class="small" x="280" y="30">商品/相場：products, identifiers, market_prices, ai_scores</text>
+    <text class="small" x="280" y="52">仕入れ/在庫：purchase_orders, inventory_items, movements</text>
+    <text class="small" x="280" y="74">販売/会計：orders, fees, shipments, accounting_entries</text>
+    <text class="small" x="280" y="96">運用：alerts, jobs, job_runs, credentials, audit_logs</text>
+  </g>
+
+  <g transform="translate(92 934)">
+    <rect x="0" y="0" width="1736" height="42" rx="18" fill="#f3f6fa" stroke="#dce2ea"/>
+    <text class="small" x="22" y="27">重要管理項目：SKU/JAN/ASIN紐づけ、在庫滞留アラート、資金繰り、棚卸、古物台帳、真贋/禁止商品チェック、実績学習。</text>
+    <text class="tiny" x="1480" y="27">作成: Codex / 2026-05-24 / v7</text>
+  </g>
+</svg>

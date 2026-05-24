@@ -1,0 +1,214 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <defs>
+    <style>
+      .bg { fill: #f6f7fa; }
+      .title { font: 700 42px "Yu Gothic", "Meiryo", Arial, sans-serif; fill: #162033; }
+      .subtitle { font: 400 19px "Yu Gothic", "Meiryo", Arial, sans-serif; fill: #5d6878; }
+      .section { font: 700 22px "Yu Gothic", "Meiryo", Arial, sans-serif; fill: #1b2536; }
+      .body { font: 600 16px "Yu Gothic", "Meiryo", Arial, sans-serif; fill: #253146; }
+      .small { font: 500 13px "Yu Gothic", "Meiryo", Arial, sans-serif; fill: #596579; }
+      .tiny { font: 500 11px "Yu Gothic", "Meiryo", Arial, sans-serif; fill: #657184; }
+      .card { fill: #ffffff; stroke: #dfe5ed; stroke-width: 1.4; }
+      .soft { fill: #f0f4f8; }
+      .blue { fill: #2563eb; }
+      .green { fill: #0f9f6e; }
+      .orange { fill: #d97706; }
+      .red { fill: #dc2626; }
+      .purple { fill: #7c3aed; }
+      .ink { fill: #172033; }
+      .apiFree { fill: #e8f5ef; stroke: #89c8ab; }
+      .apiPaid { fill: #fff2df; stroke: #ddb16f; }
+      .apiMixed { fill: #eef2ff; stroke: #9aa9e8; }
+      .risk { fill: #fff1f2; stroke: #ef9aa7; }
+      .line { stroke: #9aa7b8; stroke-width: 3; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+      .dash { stroke: #c08a3e; stroke-width: 2.5; fill: none; stroke-linecap: round; stroke-dasharray: 8 8; }
+      .badgeText { font: 700 12px "Yu Gothic", "Meiryo", Arial, sans-serif; fill: #ffffff; }
+      .tagText { font: 700 11px "Yu Gothic", "Meiryo", Arial, sans-serif; fill: #233044; }
+      .num { font: 700 16px Arial, sans-serif; fill: #ffffff; }
+    </style>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#1d283a" flood-opacity="0.10"/>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#9aa7b8"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" width="1600" height="900"/>
+  <rect x="48" y="34" width="1504" height="832" rx="22" fill="#ffffff" filter="url(#shadow)"/>
+  <rect x="48" y="34" width="1504" height="832" rx="22" fill="#ffffff" stroke="#e6ebf1" stroke-width="1.5"/>
+
+  <text x="86" y="96" class="title">せどりAIシステム：仕入れ先・販売先・会計までのデータ取得設計</text>
+  <text x="88" y="132" class="subtitle">公式APIを優先し、有料API・CSV・手動入力で補完。スクレイピングは規約リスクがあるため限定利用にする。</text>
+
+  <g transform="translate(86 170)">
+    <rect x="0" y="0" width="1428" height="62" rx="16" fill="#f3f6fa" stroke="#dce2ea"/>
+    <text class="section" x="24" y="39">凡例</text>
+    <rect class="apiFree" x="138" y="17" width="108" height="28" rx="14"/>
+    <text class="tagText" x="163" y="36">無料API</text>
+    <rect class="apiPaid" x="264" y="17" width="108" height="28" rx="14"/>
+    <text class="tagText" x="289" y="36">有料API</text>
+    <rect class="apiMixed" x="390" y="17" width="128" height="28" rx="14"/>
+    <text class="tagText" x="411" y="36">無料/有料あり</text>
+    <rect class="soft" x="536" y="17" width="108" height="28" rx="14" stroke="#cbd5e1"/>
+    <text class="tagText" x="557" y="36">CSV/手動</text>
+    <rect class="risk" x="662" y="17" width="142" height="28" rx="14"/>
+    <text class="tagText" x="682" y="36">規約注意/非推奨</text>
+    <text class="small" x="842" y="36">※料金は2026年5月時点の一般的な整理。API利用条件・審査・上限は各社で確認。</text>
+  </g>
+
+  <g transform="translate(86 262)">
+    <rect class="card" x="0" y="0" width="286" height="408" rx="16"/>
+    <circle class="blue" cx="32" cy="34" r="18"/>
+    <text class="num" x="27" y="40">1</text>
+    <text class="section" x="62" y="42">仕入れ先データ</text>
+    <text class="small" x="22" y="72">どこから安く買えるかを見る</text>
+
+    <rect class="apiFree" x="18" y="96" width="250" height="38" rx="10"/>
+    <text class="body" x="34" y="119">楽天市場</text>
+    <text class="tiny" x="190" y="119">楽天API: 無料</text>
+
+    <rect class="apiFree" x="18" y="144" width="250" height="38" rx="10"/>
+    <text class="body" x="34" y="167">Yahoo!ショッピング</text>
+    <text class="tiny" x="170" y="167">商品検索API: 無料</text>
+
+    <rect class="apiMixed" x="18" y="192" width="250" height="38" rx="10"/>
+    <text class="body" x="34" y="215">Amazon.co.jp</text>
+    <text class="tiny" x="168" y="215">SP-API: 条件あり</text>
+
+    <rect class="soft" x="18" y="240" width="250" height="38" rx="10" stroke="#cbd5e1"/>
+    <text class="body" x="34" y="263">店舗仕入れ</text>
+    <text class="tiny" x="171" y="263">JAN/手動/OCR</text>
+
+    <rect class="risk" x="18" y="288" width="250" height="38" rx="10"/>
+    <text class="body" x="34" y="311">メルカリ</text>
+    <text class="tiny" x="158" y="311">公式一般API弱い</text>
+
+    <rect class="apiMixed" x="18" y="336" width="250" height="38" rx="10"/>
+    <text class="body" x="34" y="359">ヤフオク / eBay</text>
+    <text class="tiny" x="170" y="359">API/CSV併用</text>
+  </g>
+
+  <g transform="translate(402 262)">
+    <rect class="card" x="0" y="0" width="286" height="408" rx="16"/>
+    <circle class="blue" cx="32" cy="34" r="18"/>
+    <text class="num" x="27" y="40">2</text>
+    <text class="section" x="62" y="42">販売市場データ</text>
+    <text class="small" x="22" y="72">Amazonで売れるかを確認</text>
+
+    <rect class="apiMixed" x="18" y="96" width="250" height="50" rx="10"/>
+    <text class="body" x="34" y="118">Amazon SP-API</text>
+    <text class="tiny" x="34" y="137">商品情報・価格・競合・注文・入金</text>
+
+    <rect class="apiPaid" x="18" y="158" width="250" height="50" rx="10"/>
+    <text class="body" x="34" y="180">Keepa API</text>
+    <text class="tiny" x="34" y="199">価格推移・ランキング推移・出品者履歴</text>
+
+    <rect class="apiMixed" x="18" y="220" width="250" height="50" rx="10"/>
+    <text class="body" x="34" y="242">eBay API</text>
+    <text class="tiny" x="34" y="261">海外販売なら在庫・注文・出品を取得</text>
+
+    <rect class="soft" x="18" y="282" width="250" height="50" rx="10" stroke="#cbd5e1"/>
+    <text class="body" x="34" y="304">他販路の売れ行き</text>
+    <text class="tiny" x="34" y="323">CSV/手動/外部ツールで補完</text>
+
+    <text class="tiny" x="22" y="370">現在値はSP-API、履歴はKeepaで補強する設計が現実的。</text>
+  </g>
+
+  <g transform="translate(718 262)">
+    <rect class="card" x="0" y="0" width="286" height="408" rx="16"/>
+    <circle class="green" cx="32" cy="34" r="18"/>
+    <text class="num" x="27" y="40">3</text>
+    <text class="section" x="62" y="42">AI仕入れ判定</text>
+    <text class="small" x="22" y="72">数字をスコア化して判断</text>
+
+    <rect class="soft" x="18" y="96" width="250" height="48" rx="10" stroke="#cbd5e1"/>
+    <text class="body" x="34" y="118">利益計算</text>
+    <text class="tiny" x="34" y="136">販売価格 - 原価 - 手数料 - 送料</text>
+
+    <rect class="soft" x="18" y="156" width="250" height="48" rx="10" stroke="#cbd5e1"/>
+    <text class="body" x="34" y="178">需要・回転判定</text>
+    <text class="tiny" x="34" y="196">ランキング推移・売れ行き・季節性</text>
+
+    <rect class="soft" x="18" y="216" width="250" height="48" rx="10" stroke="#cbd5e1"/>
+    <text class="body" x="34" y="238">競合・リスク判定</text>
+    <text class="tiny" x="34" y="256">Amazon本体・出品者数・価格下落</text>
+
+    <rect class="apiMixed" x="18" y="276" width="250" height="48" rx="10"/>
+    <text class="body" x="34" y="298">GPT-5.5 / AI</text>
+    <text class="tiny" x="34" y="316">A/B/C判定・仕入れ数・理由を文章化</text>
+
+    <text class="tiny" x="22" y="370">計算はルールベース、説明と例外判断をAIに任せる。</text>
+  </g>
+
+  <g transform="translate(1034 262)">
+    <rect class="card" x="0" y="0" width="286" height="408" rx="16"/>
+    <circle class="orange" cx="32" cy="34" r="18"/>
+    <text class="num" x="27" y="40">4</text>
+    <text class="section" x="62" y="42">販売・在庫管理</text>
+    <text class="small" x="22" y="72">売れた後の実績を回収</text>
+
+    <rect class="apiMixed" x="18" y="96" width="250" height="50" rx="10"/>
+    <text class="body" x="34" y="118">Amazon販売</text>
+    <text class="tiny" x="34" y="137">Orders / FBA Inventory / Finances</text>
+
+    <rect class="apiMixed" x="18" y="158" width="250" height="50" rx="10"/>
+    <text class="body" x="34" y="180">Yahoo!ショッピング販売</text>
+    <text class="tiny" x="34" y="199">ストアAPI / 注文・商品・在庫</text>
+
+    <rect class="apiMixed" x="18" y="220" width="250" height="50" rx="10"/>
+    <text class="body" x="34" y="242">eBay販売</text>
+    <text class="tiny" x="34" y="261">Inventory / Fulfillment API</text>
+
+    <rect class="risk" x="18" y="282" width="250" height="50" rx="10"/>
+    <text class="body" x="34" y="304">メルカリ販売</text>
+    <text class="tiny" x="34" y="323">自動出品・自動操作は規約注意。CSV/手動中心</text>
+
+    <text class="tiny" x="22" y="370">自社DBを在庫マスターにし、各販路データを同期する。</text>
+  </g>
+
+  <g transform="translate(1350 262)">
+    <rect class="card" x="0" y="0" width="164" height="408" rx="16"/>
+    <circle class="green" cx="32" cy="34" r="18"/>
+    <text class="num" x="27" y="40">5</text>
+    <text class="section" x="22" y="76">会計</text>
+
+    <rect class="apiMixed" x="18" y="104" width="128" height="54" rx="10"/>
+    <text class="body" x="34" y="126">freee</text>
+    <text class="tiny" x="34" y="145">API/CSV</text>
+
+    <rect class="apiMixed" x="18" y="174" width="128" height="54" rx="10"/>
+    <text class="body" x="34" y="196">MFクラウド</text>
+    <text class="tiny" x="34" y="215">APIは条件あり</text>
+
+    <rect class="soft" x="18" y="244" width="128" height="54" rx="10" stroke="#cbd5e1"/>
+    <text class="body" x="34" y="266">CSV仕訳</text>
+    <text class="tiny" x="34" y="285">汎用連携</text>
+
+    <rect class="soft" x="18" y="314" width="128" height="54" rx="10" stroke="#cbd5e1"/>
+    <text class="body" x="34" y="336">OCR</text>
+    <text class="tiny" x="34" y="355">領収書</text>
+  </g>
+
+  <path class="line" d="M372 466 L395 466" marker-end="url(#arrow)"/>
+  <path class="line" d="M688 466 L711 466" marker-end="url(#arrow)"/>
+  <path class="line" d="M1004 466 L1027 466" marker-end="url(#arrow)"/>
+  <path class="line" d="M1320 466 L1343 466" marker-end="url(#arrow)"/>
+
+  <g transform="translate(86 704)">
+    <rect x="0" y="0" width="1428" height="112" rx="18" fill="#f3f6fa" stroke="#dce2ea"/>
+    <text class="section" x="24" y="40">最初に作るMVP</text>
+    <text class="body" x="230" y="35">1. 楽天/Yahoo/Amazon候補取得</text>
+    <text class="small" x="230" y="58">無料API中心。JAN/商品名で候補を集める</text>
+    <text class="body" x="542" y="35">2. Keepaで履歴確認</text>
+    <text class="small" x="542" y="58">有料API。売れ行き・価格下落を確認</text>
+    <text class="body" x="814" y="35">3. AI判定</text>
+    <text class="small" x="814" y="58">利益・回転・競合をA/B/C判定</text>
+    <text class="body" x="1036" y="35">4. 販売/会計へ連携</text>
+    <text class="small" x="1036" y="58">Amazon実績とfreee/CSVで利益確定</text>
+    <text class="tiny" x="230" y="91">メルカリ・ヤフオクは最初から無理に完全自動化せず、CSV/手動入力で補完する方が安全。</text>
+  </g>
+
+  <text class="tiny" x="88" y="842">注記：Amazon SP-APIは出品者アカウント・アプリ登録・審査・権限が必要。Keepa APIは有料プラン前提。スクレイピングは各サービス規約を確認。</text>
+  <text class="tiny" x="1294" y="842">作成: Codex / 2026-05-24 / v2</text>
+</svg>

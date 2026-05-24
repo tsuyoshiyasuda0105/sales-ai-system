@@ -1,0 +1,242 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
+  <defs>
+    <style>
+      .bg { fill: #f6f7fa; }
+      .paper { fill: #ffffff; stroke: #e6ebf1; stroke-width: 1.5; }
+      .title { font: 700 43px "Yu Gothic", "Meiryo", Arial, sans-serif; fill: #162033; }
+      .subtitle { font: 400 19px "Yu Gothic", "Meiryo", Arial, sans-serif; fill: #5d6878; }
+      .section { font: 700 21px "Yu Gothic", "Meiryo", Arial, sans-serif; fill: #1b2536; }
+      .body { font: 600 16px "Yu Gothic", "Meiryo", Arial, sans-serif; fill: #253146; }
+      .small { font: 500 13px "Yu Gothic", "Meiryo", Arial, sans-serif; fill: #596579; }
+      .tiny { font: 500 11px "Yu Gothic", "Meiryo", Arial, sans-serif; fill: #657184; }
+      .card { fill: #ffffff; stroke: #dfe5ed; stroke-width: 1.4; }
+      .soft { fill: #f0f4f8; stroke: #cbd5e1; }
+      .apiFree { fill: #e8f5ef; stroke: #89c8ab; }
+      .apiPaid { fill: #fff2df; stroke: #ddb16f; }
+      .apiMixed { fill: #eef2ff; stroke: #9aa9e8; }
+      .risk { fill: #fff1f2; stroke: #ef9aa7; }
+      .db { fill: #eef6ff; stroke: #8bbce8; }
+      .job { fill: #f7efff; stroke: #bba1e8; }
+      .keepa { fill: #fff7ed; stroke: #f1b76a; }
+      .secure { fill: #ecfeff; stroke: #67c7d1; }
+      .compare { fill: #f8fbff; stroke: #7aa7df; stroke-width: 1.6; }
+      .compareHead { fill: #e7f0ff; stroke: #b9c9e5; }
+      .compareCell { fill: #ffffff; stroke: #d7e0ec; }
+      .blue { fill: #2563eb; }
+      .green { fill: #0f9f6e; }
+      .orange { fill: #d97706; }
+      .purple { fill: #7c3aed; }
+      .dark { fill: #172033; }
+      .teal { fill: #0891b2; }
+      .red { fill: #dc2626; }
+      .yellow { fill: #ca8a04; }
+      .line { stroke: #9aa7b8; stroke-width: 3; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+      .badgeText { font: 700 12px "Yu Gothic", "Meiryo", Arial, sans-serif; fill: #ffffff; }
+      .num { font: 700 16px Arial, sans-serif; fill: #ffffff; }
+      .platform { font: 700 15px "Yu Gothic", "Meiryo", Arial, sans-serif; fill: #1b2536; }
+      .metric { font: 700 13px "Yu Gothic", "Meiryo", Arial, sans-serif; fill: #374151; }
+      .check { font: 700 15px Arial, sans-serif; fill: #0f9f6e; }
+    </style>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#1d283a" flood-opacity="0.10"/>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#9aa7b8"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" width="1920" height="1080"/>
+  <rect class="paper" x="48" y="36" width="1824" height="1008" rx="26" filter="url(#shadow)"/>
+  <rect class="paper" x="48" y="36" width="1824" height="1008" rx="26"/>
+
+  <text x="92" y="94" class="title">せどりAIシステム統合概念図 v9</text>
+  <text x="94" y="128" class="subtitle">Amazon・メルカリ・ヤフオク・楽天・Yahooを横断し、仕入れ判断から在庫・会計管理まで一気通貫で支援するSaaS設計</text>
+
+  <g transform="translate(92 154)">
+    <rect class="soft" x="0" y="0" width="1736" height="62" rx="18"/>
+    <text class="section" x="26" y="39">技術方針</text>
+    <rect class="blue" x="142" y="15" width="188" height="32" rx="16"/>
+    <text class="badgeText" x="170" y="36">TypeScript / Node.js</text>
+    <rect class="green" x="348" y="15" width="118" height="32" rx="16"/>
+    <text class="badgeText" x="378" y="36">Next.js</text>
+    <rect class="dark" x="484" y="15" width="126" height="32" rx="16"/>
+    <text class="badgeText" x="518" y="36">Prisma</text>
+    <rect class="purple" x="628" y="15" width="178" height="32" rx="16"/>
+    <text class="badgeText" x="656" y="36">Redis + BullMQ</text>
+    <rect class="teal" x="824" y="15" width="198" height="32" rx="16"/>
+    <text class="badgeText" x="854" y="36">PostgreSQL + RLS</text>
+    <text class="small" x="1052" y="35">MVPはAPI連携を優先し、全データをorganization_idで分離</text>
+  </g>
+
+  <g transform="translate(92 246)">
+    <rect class="card" x="0" y="0" width="268" height="214" rx="18"/>
+    <circle class="blue" cx="30" cy="32" r="18"/><text class="num" x="25" y="38">1</text>
+    <text class="section" x="62" y="40">仕入れ候補収集</text>
+    <text class="small" x="22" y="70">商品・価格・在庫を定期取得</text>
+    <rect class="apiFree" x="22" y="92" width="224" height="34" rx="10"/><text class="body" x="38" y="114">楽天市場 API</text>
+    <rect class="apiFree" x="22" y="136" width="224" height="34" rx="10"/><text class="body" x="38" y="158">Yahooショッピング API</text>
+    <rect class="apiMixed" x="22" y="180" width="224" height="24" rx="10"/><text class="tiny" x="38" y="197">Amazon / メルカリ / ヤフオク</text>
+  </g>
+
+  <g transform="translate(386 246)">
+    <rect class="card" x="0" y="0" width="268" height="214" rx="18"/>
+    <circle class="blue" cx="30" cy="32" r="18"/><text class="num" x="25" y="38">2</text>
+    <text class="section" x="62" y="40">相場・販売履歴</text>
+    <text class="small" x="22" y="70">価格推移と売れ行きを取得</text>
+    <rect class="apiPaid" x="22" y="92" width="224" height="34" rx="10"/><text class="body" x="38" y="114">Keepa API</text>
+    <rect class="apiMixed" x="22" y="136" width="224" height="34" rx="10"/><text class="body" x="38" y="158">Amazon SP-API</text>
+    <rect class="apiFree" x="22" y="180" width="224" height="24" rx="10"/><text class="tiny" x="38" y="197">楽天 / Yahoo 価格・送料</text>
+  </g>
+
+  <g transform="translate(680 246)">
+    <rect class="card" x="0" y="0" width="268" height="214" rx="18"/>
+    <circle class="teal" cx="30" cy="32" r="18"/><text class="num" x="25" y="38">3</text>
+    <text class="section" x="62" y="40">横断マッチング</text>
+    <text class="small" x="22" y="70">JAN/ASIN/SKU/商品名を照合</text>
+    <rect class="db" x="22" y="92" width="224" height="34" rx="10"/><text class="body" x="38" y="114">channel_product_matches</text>
+    <rect class="soft" x="22" y="136" width="224" height="34" rx="10"/><text class="body" x="38" y="158">同一商品の候補統合</text>
+    <rect class="soft" x="22" y="180" width="224" height="24" rx="10"/><text class="tiny" x="38" y="197">信頼度スコアで重複排除</text>
+  </g>
+
+  <g transform="translate(974 246)">
+    <rect class="card" x="0" y="0" width="268" height="214" rx="18"/>
+    <circle class="green" cx="30" cy="32" r="18"/><text class="num" x="25" y="38">4</text>
+    <text class="section" x="62" y="40">AI利益判定</text>
+    <text class="small" x="22" y="70">粗利・ROI・回転・リスク</text>
+    <rect class="soft" x="22" y="92" width="224" height="34" rx="10"/><text class="body" x="38" y="114">価格差 / 送料 / 手数料</text>
+    <rect class="soft" x="22" y="136" width="224" height="34" rx="10"/><text class="body" x="38" y="158">需要 / 在庫 / 競合数</text>
+    <rect class="apiMixed" x="22" y="180" width="224" height="24" rx="10"/><text class="tiny" x="38" y="197">A/B/C仕入れランク</text>
+  </g>
+
+  <g transform="translate(1268 246)">
+    <rect class="card" x="0" y="0" width="268" height="214" rx="18"/>
+    <circle class="purple" cx="30" cy="32" r="18"/><text class="num" x="25" y="38">5</text>
+    <text class="section" x="62" y="40">在庫・出品管理</text>
+    <text class="small" x="22" y="70">入庫から販売中まで追跡</text>
+    <rect class="db" x="22" y="92" width="224" height="34" rx="10"/><text class="body" x="38" y="114">inventory_items</text>
+    <rect class="soft" x="22" y="136" width="224" height="34" rx="10"/><text class="body" x="38" y="158">検品 / 写真 / SKU管理</text>
+    <rect class="risk" x="22" y="180" width="224" height="24" rx="10"/><text class="tiny" x="38" y="197">滞留・返品アラート</text>
+  </g>
+
+  <g transform="translate(1562 246)">
+    <rect class="card" x="0" y="0" width="266" height="214" rx="18"/>
+    <circle class="orange" cx="30" cy="32" r="18"/><text class="num" x="25" y="38">6</text>
+    <text class="section" x="62" y="40">販売・会計連携</text>
+    <text class="small" x="22" y="70">売上・原価・手数料を回収</text>
+    <rect class="apiMixed" x="22" y="92" width="222" height="34" rx="10"/><text class="body" x="38" y="114">Amazon / Yahoo販売</text>
+    <rect class="db" x="22" y="136" width="222" height="34" rx="10"/><text class="body" x="38" y="158">accounting_entries</text>
+    <rect class="soft" x="22" y="180" width="222" height="24" rx="10"/><text class="tiny" x="38" y="197">freee API / CSV / 証憑保存</text>
+  </g>
+
+  <path class="line" d="M360 353 L379 353" marker-end="url(#arrow)"/>
+  <path class="line" d="M654 353 L673 353" marker-end="url(#arrow)"/>
+  <path class="line" d="M948 353 L967 353" marker-end="url(#arrow)"/>
+  <path class="line" d="M1242 353 L1261 353" marker-end="url(#arrow)"/>
+  <path class="line" d="M1536 353 L1555 353" marker-end="url(#arrow)"/>
+  <path class="line" d="M816 463 L816 488" marker-end="url(#arrow)"/>
+  <path class="line" d="M1108 463 L1108 488" marker-end="url(#arrow)"/>
+
+  <g transform="translate(92 494)">
+    <rect class="compare" x="0" y="0" width="1736" height="214" rx="18"/>
+    <text class="section" x="26" y="36">マルチプラットフォーム横断比較</text>
+    <text class="body" x="26" y="66">Amazon / メルカリ / ヤフオク / 楽天 / Yahooを1画面で比較</text>
+    <text class="small" x="26" y="94">価格・送料・手数料・在庫・売れ行きを同じ指標に正規化</text>
+    <rect class="db" x="26" y="118" width="316" height="34" rx="10"/>
+    <text class="body" x="44" y="140">cross_channel_opportunities</text>
+    <rect class="soft" x="26" y="162" width="316" height="30" rx="10"/>
+    <text class="small" x="44" y="182">最安仕入れ先・最高粗利販路を提示</text>
+
+    <g transform="translate(386 28)">
+      <rect class="compareHead" x="0" y="0" width="155" height="34" rx="9"/>
+      <text class="metric" x="45" y="23">比較指標</text>
+      <rect class="compareHead" x="155" y="0" width="238" height="34" rx="9"/>
+      <text class="platform" x="244" y="23">Amazon</text>
+      <rect class="compareHead" x="393" y="0" width="238" height="34" rx="9"/>
+      <text class="platform" x="476" y="23">メルカリ</text>
+      <rect class="compareHead" x="631" y="0" width="238" height="34" rx="9"/>
+      <text class="platform" x="718" y="23">ヤフオク</text>
+      <rect class="compareHead" x="869" y="0" width="238" height="34" rx="9"/>
+      <text class="platform" x="962" y="23">楽天</text>
+      <rect class="compareHead" x="1107" y="0" width="238" height="34" rx="9"/>
+      <text class="platform" x="1196" y="23">Yahoo</text>
+
+      <g transform="translate(0 44)">
+        <rect class="compareCell" x="0" y="0" width="155" height="26" rx="7"/><text class="metric" x="57" y="18">価格</text>
+        <rect class="compareCell" x="155" y="0" width="238" height="26" rx="7"/><text class="small" x="235" y="18">新品/中古価格</text>
+        <rect class="compareCell" x="393" y="0" width="238" height="26" rx="7"/><text class="small" x="476" y="18">出品価格</text>
+        <rect class="compareCell" x="631" y="0" width="238" height="26" rx="7"/><text class="small" x="715" y="18">落札相場</text>
+        <rect class="compareCell" x="869" y="0" width="238" height="26" rx="7"/><text class="small" x="953" y="18">販売価格</text>
+        <rect class="compareCell" x="1107" y="0" width="238" height="26" rx="7"/><text class="small" x="1188" y="18">販売価格</text>
+      </g>
+      <g transform="translate(0 78)">
+        <rect class="compareCell" x="0" y="0" width="155" height="26" rx="7"/><text class="metric" x="57" y="18">送料</text>
+        <rect class="compareCell" x="155" y="0" width="238" height="26" rx="7"/><text class="small" x="245" y="18">FBA/自己発送</text>
+        <rect class="compareCell" x="393" y="0" width="238" height="26" rx="7"/><text class="small" x="475" y="18">送料込み判定</text>
+        <rect class="compareCell" x="631" y="0" width="238" height="26" rx="7"/><text class="small" x="715" y="18">配送条件</text>
+        <rect class="compareCell" x="869" y="0" width="238" height="26" rx="7"/><text class="small" x="953" y="18">送料API</text>
+        <rect class="compareCell" x="1107" y="0" width="238" height="26" rx="7"/><text class="small" x="1187" y="18">送料API</text>
+      </g>
+      <g transform="translate(0 112)">
+        <rect class="compareCell" x="0" y="0" width="155" height="26" rx="7"/><text class="metric" x="51" y="18">手数料</text>
+        <rect class="compareCell" x="155" y="0" width="238" height="26" rx="7"/><text class="small" x="237" y="18">カテゴリ別</text>
+        <rect class="compareCell" x="393" y="0" width="238" height="26" rx="7"/><text class="small" x="473" y="18">販売手数料</text>
+        <rect class="compareCell" x="631" y="0" width="238" height="26" rx="7"/><text class="small" x="710" y="18">落札手数料</text>
+        <rect class="compareCell" x="869" y="0" width="238" height="26" rx="7"/><text class="small" x="951" y="18">料率管理</text>
+        <rect class="compareCell" x="1107" y="0" width="238" height="26" rx="7"/><text class="small" x="1187" y="18">料率管理</text>
+      </g>
+      <g transform="translate(0 146)">
+        <rect class="compareCell" x="0" y="0" width="155" height="26" rx="7"/><text class="metric" x="57" y="18">在庫</text>
+        <rect class="compareCell" x="155" y="0" width="238" height="26" rx="7"/><text class="small" x="246" y="18">出品者数</text>
+        <rect class="compareCell" x="393" y="0" width="238" height="26" rx="7"/><text class="small" x="484" y="18">出品状態</text>
+        <rect class="compareCell" x="631" y="0" width="238" height="26" rx="7"/><text class="small" x="715" y="18">出品件数</text>
+        <rect class="compareCell" x="869" y="0" width="238" height="26" rx="7"/><text class="small" x="952" y="18">在庫有無</text>
+        <rect class="compareCell" x="1107" y="0" width="238" height="26" rx="7"/><text class="small" x="1188" y="18">在庫有無</text>
+      </g>
+      <g transform="translate(0 180)">
+        <rect class="compareCell" x="0" y="0" width="155" height="26" rx="7"/><text class="metric" x="45" y="18">売れ行き</text>
+        <rect class="compareCell" x="155" y="0" width="238" height="26" rx="7"/><text class="small" x="241" y="18">ランキング</text>
+        <rect class="compareCell" x="393" y="0" width="238" height="26" rx="7"/><text class="small" x="476" y="18">SOLD履歴</text>
+        <rect class="compareCell" x="631" y="0" width="238" height="26" rx="7"/><text class="small" x="704" y="18">入札/落札履歴</text>
+        <rect class="compareCell" x="869" y="0" width="238" height="26" rx="7"/><text class="small" x="951" y="18">レビュー/順位</text>
+        <rect class="compareCell" x="1107" y="0" width="238" height="26" rx="7"/><text class="small" x="1181" y="18">レビュー/順位</text>
+      </g>
+    </g>
+  </g>
+
+  <g transform="translate(92 732)">
+    <rect class="secure" x="0" y="0" width="536" height="126" rx="18"/>
+    <text class="section" x="26" y="36">マルチテナント / セキュリティ</text>
+    <text class="body" x="26" y="68">organization_idで全データを分離</text>
+    <text class="small" x="26" y="94">APIキーは暗号化し、RLSと監査ログで保護</text>
+  </g>
+
+  <g transform="translate(662 732)">
+    <rect class="job" x="0" y="0" width="536" height="126" rx="18"/>
+    <text class="section" x="26" y="36">スケジューラー / タスク管理</text>
+    <text class="body" x="26" y="68">BullMQ + Redisで価格・在庫を定期同期</text>
+    <text class="small" x="26" y="94">差分検知、滞留チェック、日次AIレポートを実行</text>
+  </g>
+
+  <g transform="translate(1232 732)">
+    <rect class="keepa" x="0" y="0" width="596" height="126" rx="18"/>
+    <text class="section" x="26" y="36">差別化ポイント</text>
+    <text class="body" x="26" y="68">日本版 Tactical Arbitrage + SellerAmp + 在庫/会計管理</text>
+    <text class="small" x="26" y="94">仕入れ判断だけで終わらせず、販売後の利益確定まで追跡</text>
+  </g>
+
+  <g transform="translate(92 884)">
+    <rect class="db" x="0" y="0" width="1736" height="86" rx="18"/>
+    <text class="section" x="26" y="36">データベース設計 PostgreSQL</text>
+    <text class="small" x="330" y="31">認証/組織: users, organizations, organization_members, api_credentials, sessions</text>
+    <text class="small" x="330" y="57">商品/市場: products, product_identifiers, market_prices, sourcing_candidates, ai_scores</text>
+    <text class="small" x="940" y="31">横断比較: channel_product_matches, cross_channel_opportunities</text>
+    <text class="small" x="940" y="57">在庫/会計: purchase_orders, inventory_items, inventory_movements, orders, fees, accounting_entries</text>
+  </g>
+
+  <g transform="translate(92 1000)">
+    <rect x="0" y="0" width="1736" height="44" rx="18" fill="#f3f6fa" stroke="#dce2ea"/>
+    <text class="small" x="22" y="28">重要管理項目: SKU/JAN/ASIN紐づけ、販路別価格差、送料・手数料込み粗利、在庫滞留、販売履歴、証憑保存、APIキー暗号化、RLS、監査ログ</text>
+    <text class="tiny" x="1482" y="28">作成: Codex / 2026-05-24 / v9</text>
+  </g>
+</svg>
