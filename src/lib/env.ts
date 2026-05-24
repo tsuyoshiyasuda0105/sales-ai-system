@@ -15,6 +15,9 @@ const envSchema = z.object({
   AWS_KMS_KEY_ID: z.string().optional(),
   KEEPA_API_KEY: z.string().optional(),
   RAKUTEN_APPLICATION_ID: z.string().optional(),
+  RAKUTEN_APP_ID: z.string().optional(),
+  RAKUTEN_ACCESS_KEY: z.string().optional(),
+  RAKUTEN_AFFILIATE_ID: z.string().optional(),
   YAHOO_CLIENT_ID: z.string().optional(),
   AMAZON_SP_API_ENABLED: z.string().default("false")
 });
