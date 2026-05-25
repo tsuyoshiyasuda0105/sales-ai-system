@@ -6,6 +6,7 @@ export const DEMO_ORGANIZATION_ID = "00000000-0000-4000-8000-000000000101";
 export type OpportunityRow = {
   id: string;
   product: string;
+  productId: string | null;
   productImageUrl?: string | null;
   buyChannel: string;
   sellChannel: string;
@@ -101,6 +102,7 @@ export async function listOpportunityRows(organizationId: string): Promise<Oppor
     return {
       id: opportunity.id,
       product: productTitle,
+      productId: opportunity.product_id ?? null,
       productImageUrl: opportunity.products_cross_channel_opportunities_product_idToproducts?.image_url,
       buyChannel: channelLabel(String(opportunity.buy_channel)),
       sellChannel: channelLabel(String(opportunity.sell_channel)),
@@ -153,6 +155,7 @@ export async function listOpportunityRows(organizationId: string): Promise<Oppor
     return {
       id: candidate.id,
       product: productTitle,
+      productId: candidate.product_id ?? null,
       productImageUrl: product?.image_url,
       buyChannel: channelLabel(String(candidate.source_channel)),
       sellChannel: channelLabel(String(candidate.target_channel)),

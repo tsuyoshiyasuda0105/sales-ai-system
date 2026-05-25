@@ -400,7 +400,7 @@ export function OpportunitiesTable({
                     </span>
                   </td>
                   <td>
-                    <Link className="cell-link" href={`/cross-platform?product=${encodeURIComponent(item.product)}`}>
+                    <Link className="cell-link" href={crossPlatformHref(item)}>
                       {item.product}
                     </Link>
                     <span className="cell-sub">
@@ -464,7 +464,7 @@ export function OpportunitiesTable({
                         仕入れ元
                       </a>
                     ) : (
-                      <Link className="button ghost" href={`/cross-platform?product=${encodeURIComponent(item.product)}`}>
+                      <Link className="button ghost" href={crossPlatformHref(item)}>
                         詳細
                       </Link>
                     )}
@@ -549,6 +549,12 @@ function clampRate(value: string) {
   if (!Number.isFinite(parsed)) return 0;
 
   return Math.min(50, Math.max(0, parsed));
+}
+
+function crossPlatformHref(item: { productId: string | null; product: string }) {
+  return item.productId
+    ? `/cross-platform?productId=${encodeURIComponent(item.productId)}`
+    : `/cross-platform?product=${encodeURIComponent(item.product)}`;
 }
 
 function csvCell(value: string | number) {
