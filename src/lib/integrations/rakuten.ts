@@ -83,15 +83,21 @@ type RakutenRankingResponse = {
 type RakutenErrorResponse = {
   error?: string;
   error_description?: string;
+  errors?: {
+    errorCode?: number;
+    errorMessage?: string;
+  };
 };
 
 export class RakutenApiError extends Error {
   status: number;
+  code?: string;
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, code?: string) {
     super(message);
     this.name = "RakutenApiError";
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -144,11 +150,8 @@ export async function searchRakutenItems(params: RakutenSearchParams) {
   const payload = (await response.json().catch(() => null)) as RakutenApiResponse | RakutenErrorResponse | null;
 
   if (!response.ok) {
-    const message =
-      payload && "error" in payload && payload.error
-        ? [payload.error, payload.error_description].filter(Boolean).join(": ")
-        : "Rakuten API request failed.";
-    throw new RakutenApiError(message, response.status);
+    const error = rakutenErrorDetails(payload);
+    throw new RakutenApiError(error.message, response.status, error.code);
   }
 
   const data = payload as RakutenApiResponse;
@@ -207,11 +210,8 @@ export async function getRakutenRankingItems(params: RakutenRankingParams = {}) 
   const payload = (await response.json().catch(() => null)) as RakutenRankingResponse | RakutenErrorResponse | null;
 
   if (!response.ok) {
-    const message =
-      payload && "error" in payload && payload.error
-        ? [payload.error, payload.error_description].filter(Boolean).join(": ")
-        : "Rakuten ranking API request failed.";
-    throw new RakutenApiError(message, response.status);
+    const error = rakutenErrorDetails(payload, "Rakuten ranking API request failed.");
+    throw new RakutenApiError(error.message, response.status, error.code);
   }
 
   const data = payload as RakutenRankingResponse;
@@ -273,6 +273,40 @@ function firstImageUrl(images: RakutenApiItem["mediumImageUrls"]) {
   if (typeof first === "string") return first;
 
   return first.imageUrl;
+}
+
+function rakutenErrorDetails(
+  payload: RakutenApiResponse | RakutenRankingResponse | RakutenErrorResponse | null,
+  fallback = "Rakuten API request failed."
+) {
+  if (payload && "errors" in payload && payload.errors?.errorMessage) {
+    const code = payload.errors.errorMessage;
+
+    if (code === "CLIENT_IP_NOT_ALLOWED") {
+      return {
+        code: "client_ip_not_allowed",
+        message:
+          "Rakuten API rejected the request: CLIENT_IP_NOT_ALLOWED. Vercel の送信元IPが楽天アプリ側で許可されていません。楽天アプリのIP制限を解除するか、固定IPのバックエンドから実行してください。"
+      };
+    }
+
+    return {
+      code: code.toLowerCase(),
+      message: [code, payload.errors.errorCode].filter(Boolean).join(": ")
+    };
+  }
+
+  if (payload && "error" in payload && payload.error) {
+    return {
+      code: payload.error,
+      message: [payload.error, payload.error_description].filter(Boolean).join(": ")
+    };
+  }
+
+  return {
+    code: "rakuten_api_error",
+    message: fallback
+  };
 }
 
 function clamp(value: number, min: number, max: number) {

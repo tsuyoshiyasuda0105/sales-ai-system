@@ -72,7 +72,7 @@ function handleRakutenError(error: unknown) {
       {
         ok: false,
         error: {
-          code: "rakuten_api_error",
+          code: error.code ?? "rakuten_api_error",
           message: error.message
         }
       },
