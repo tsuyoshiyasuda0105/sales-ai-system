@@ -21,6 +21,9 @@ export type OpportunityRow = {
   risk: string;
   status: string;
   sourceUrl?: string | null;
+  priceBasis: "real" | "estimate";
+  sellListingCount: number | null;
+  sellUrl?: string | null;
   createdAt: string;
 };
 
@@ -57,7 +60,13 @@ export async function listOpportunityRows(organizationId: string): Promise<Oppor
       products_sourcing_candidates_product_idToproducts: {
         select: {
           title: true,
-          image_url: true
+          image_url: true,
+          market_prices: {
+            where: { source_channel: "yahoo_shopping" },
+            orderBy: { fetched_at: "desc" },
+            take: 1,
+            select: { price_amount: true, source_url: true, raw_payload: true }
+          }
         }
       }
     },
@@ -116,6 +125,9 @@ export async function listOpportunityRows(organizationId: string): Promise<Oppor
         }),
       status: statusLabel(String(opportunity.status)),
       sourceUrl: opportunity.buy_url,
+      priceBasis: "estimate",
+      sellListingCount: null,
+      sellUrl: null,
       createdAt: opportunity.created_at.toISOString()
     } satisfies OpportunityRow;
   });
@@ -129,20 +141,26 @@ export async function listOpportunityRows(organizationId: string): Promise<Oppor
     const expectedSellPrice = decimalToNullableNumber(candidate.target_expected_price_amount);
     const sellPriceRange = sellPriceRangeFromExpected(expectedSellPrice);
     const breakEvenPrice = decimalToNullableNumber(candidate.break_even_price_amount);
-    const productTitle = candidate.products_sourcing_candidates_product_idToproducts?.title ?? candidate.source_title;
+    const product = candidate.products_sourcing_candidates_product_idToproducts;
+    const productTitle = product?.title ?? candidate.source_title;
+    const yahooMarketPrice = product?.market_prices?.[0];
+    const yahooMeta = (yahooMarketPrice?.raw_payload ?? null) as
+      | { min?: number; max?: number; count?: number }
+      | null;
+    const isRealPrice = String(candidate.target_channel) === "yahoo_shopping" && Boolean(yahooMarketPrice);
 
     return {
       id: candidate.id,
       product: productTitle,
-      productImageUrl: candidate.products_sourcing_candidates_product_idToproducts?.image_url,
+      productImageUrl: product?.image_url,
       buyChannel: channelLabel(String(candidate.source_channel)),
       sellChannel: channelLabel(String(candidate.target_channel)),
       buyPrice,
       buyShipping,
       pointValue,
       expectedSellPrice,
-      expectedSellPriceLower: sellPriceRange.lower,
-      expectedSellPriceUpper: sellPriceRange.upper,
+      expectedSellPriceLower: isRealPrice ? yahooMeta?.min ?? sellPriceRange.lower : sellPriceRange.lower,
+      expectedSellPriceUpper: isRealPrice ? yahooMeta?.max ?? sellPriceRange.upper : sellPriceRange.upper,
       breakEvenPrice,
       estimatedProfit,
       roi,
@@ -156,8 +174,11 @@ export async function listOpportunityRows(organizationId: string): Promise<Oppor
       }),
       status: statusLabel(String(candidate.status)),
       sourceUrl: candidate.source_url,
+      priceBasis: isRealPrice ? "real" : "estimate",
+      sellListingCount: isRealPrice ? yahooMeta?.count ?? null : null,
+      sellUrl: isRealPrice ? yahooMarketPrice?.source_url ?? candidate.target_url : null,
       createdAt: candidate.created_at.toISOString()
-    };
+    } satisfies OpportunityRow;
   });
 
   return [...crossChannelRows, ...candidateRows]

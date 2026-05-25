@@ -1355,3 +1355,47 @@ p {
   color: var(--c-primary-hover);
   text-decoration: underline;
 }
+
+/* Real (Yahoo) vs estimate sell price */
+.sell-price-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.price-basis {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: var(--r-pill);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  border: 1px solid transparent;
+}
+
+.price-basis.real {
+  color: var(--c-success);
+  background: var(--c-success-bg);
+  border-color: var(--c-success-border);
+}
+
+.price-basis.estimate {
+  color: var(--c-text-muted);
+  background: var(--c-surface-3);
+  border-color: var(--c-border);
+}
+
+.sell-link {
+  color: var(--c-primary);
+  font-weight: 700;
+}
+
+.sell-link:hover {
+  text-decoration: underline;
+}
+
+.refresh-status {
+  margin-bottom: var(--sp-4);
+}

@@ -5,10 +5,13 @@ export type ProfitEstimateInput = {
   sourceShipping?: number;
   sourcePointValue?: number;
   targetChannel?: TargetSalesChannel;
+  /** Real observed sell price (e.g. Yahoo lowest listing). When set, replaces the markup guess. */
+  expectedSellPriceOverride?: number;
 };
 
 export type ProfitEstimate = {
   targetChannel: TargetSalesChannel;
+  priceBasis: "real" | "estimate";
   expectedSellPrice: number;
   platformFee: number;
   fbaFee: number;
@@ -78,7 +81,9 @@ export function estimateSourcingProfit(input: ProfitEstimateInput): ProfitEstima
   const sourceShipping = Math.max(0, roundMoney(input.sourceShipping ?? 0));
   const sourcePointValue = Math.max(0, roundMoney(input.sourcePointValue ?? 0));
   const netCost = Math.max(1, sourcePrice + sourceShipping - sourcePointValue);
-  const expectedSellPrice = roundMoney(netCost * assumption.markupRate);
+  const override = input.expectedSellPriceOverride;
+  const hasRealPrice = override != null && Number.isFinite(override) && override > 0;
+  const expectedSellPrice = hasRealPrice ? roundMoney(override) : roundMoney(netCost * assumption.markupRate);
   const platformFee = roundMoney(expectedSellPrice * assumption.platformFeeRate);
   const fbaFee = roundMoney(assumption.fbaFee);
   const shipping = roundMoney(assumption.shipping);
@@ -92,6 +97,7 @@ export function estimateSourcingProfit(input: ProfitEstimateInput): ProfitEstima
 
   return {
     targetChannel,
+    priceBasis: hasRealPrice ? "real" : "estimate",
     expectedSellPrice,
     platformFee,
     fbaFee,
@@ -104,7 +110,7 @@ export function estimateSourcingProfit(input: ProfitEstimateInput): ProfitEstima
     recommendedMaxPurchaseQuantity: recommendedQuantity(judgement, roi),
     judgement,
     totalScore,
-    reasonSummary: buildReasonSummary({ profit, roi, targetChannel }),
+    reasonSummary: buildReasonSummary({ profit, roi, targetChannel, hasRealPrice }),
     riskNotes: buildRiskNotes({ sourcePointValue, profit, roi })
   };
 }
@@ -135,15 +141,19 @@ function recommendedQuantity(judgement: ProfitEstimate["judgement"], roi: number
 function buildReasonSummary({
   profit,
   roi,
-  targetChannel
+  targetChannel,
+  hasRealPrice
 }: {
   profit: number;
   roi: number;
   targetChannel: TargetSalesChannel;
+  hasRealPrice: boolean;
 }) {
-  return `楽天仕入れ価格をもとに${channelLabel(targetChannel)}販売を仮定して自動計算しました。想定利益は${formatYen(
-    profit
-  )}、ROIは${(roi * 100).toFixed(1)}%です。`;
+  const basis = hasRealPrice
+    ? `${channelLabel(targetChannel)}の実売価格(出品最安値)をもとに`
+    : `楽天仕入れ価格をもとに${channelLabel(targetChannel)}販売を仮定して`;
+
+  return `${basis}自動計算しました。想定利益は${formatYen(profit)}、ROIは${(roi * 100).toFixed(1)}%です。`;
 }
 
 function buildRiskNotes({

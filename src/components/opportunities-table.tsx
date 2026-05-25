@@ -2,9 +2,19 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Icon } from "@/components/icons";
 import { gradeClass } from "@/lib/format";
 import type { OpportunityRow } from "@/lib/sales/opportunities";
+
+const DEMO_ORGANIZATION_ID = "00000000-0000-4000-8000-000000000101";
+const SESSION_API_KEY = "sales-ai-admin-api-key";
+
+type RefreshState = {
+  loading: boolean;
+  message?: string;
+  error?: boolean;
+};
 
 type JudgementFilter = "all" | "A" | "B" | "C" | "NG";
 type SortKey = "buyPrice" | "expected" | "profit" | "roi";
@@ -32,11 +42,68 @@ export function OpportunitiesTable({
   rows: OpportunityRow[];
   initialQuery?: string;
 }) {
+  const router = useRouter();
   const [query, setQuery] = useState(initialQuery);
   const [judgement, setJudgement] = useState<JudgementFilter>("all");
   const [profitableOnly, setProfitableOnly] = useState(false);
+  const [realOnly, setRealOnly] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [refreshState, setRefreshState] = useState<RefreshState>({ loading: false });
+
+  async function refreshRealPrices() {
+    const apiKey = (typeof window !== "undefined" && sessionStorage.getItem(SESSION_API_KEY)) || "";
+
+    if (!apiKey) {
+      setRefreshState({
+        loading: false,
+        error: true,
+        message: "管理用APIキーが未設定です。API設定画面で入力してから実行してください。"
+      });
+      return;
+    }
+
+    setRefreshState({ loading: true, message: "Yahoo!ショッピングの実売価格を取得中..." });
+
+    try {
+      const response = await fetch(`/api/v1/organizations/${DEMO_ORGANIZATION_ID}/yahoo/refresh-prices`, {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-api-key": apiKey },
+        body: JSON.stringify({ limit: 8 })
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | {
+            ok: boolean;
+            data?: { processed: number; updated: number; noMatch: number; rateLimited?: boolean };
+            error?: { message: string };
+          }
+        | null;
+
+      if (!response.ok || !payload?.ok || !payload.data) {
+        setRefreshState({
+          loading: false,
+          error: true,
+          message: payload?.error?.message ?? "実売価格の取得に失敗しました。"
+        });
+        return;
+      }
+
+      const { processed, updated, noMatch, rateLimited } = payload.data;
+      const base = `${processed}件を照合 / 実売を反映 ${updated}件 / 該当なし ${noMatch}件`;
+      setRefreshState({
+        loading: false,
+        error: rateLimited,
+        message: rateLimited ? `${base}（Yahoo API上限に達したため中断。時間をおいて再実行してください）` : base
+      });
+      router.refresh();
+    } catch (error) {
+      setRefreshState({
+        loading: false,
+        error: true,
+        message: error instanceof Error ? error.message : "実売価格の取得に失敗しました。"
+      });
+    }
+  }
 
   const counts = useMemo(() => {
     const base: Record<JudgementFilter, number> = { all: rows.length, A: 0, B: 0, C: 0, NG: 0 };
@@ -50,6 +117,7 @@ export function OpportunitiesTable({
     const next = rows.filter((row) => {
       if (judgement !== "all" && row.judgement !== judgement) return false;
       if (profitableOnly && !(row.estimatedProfit != null && row.estimatedProfit > 0)) return false;
+      if (realOnly && row.priceBasis !== "real") return false;
       if (q) {
         const haystack = `${row.product} ${row.buyChannel} ${row.sellChannel} ${row.risk}`.toLowerCase();
         if (!haystack.includes(q)) return false;
@@ -82,7 +150,9 @@ export function OpportunitiesTable({
 
       return sortDir === "asc" ? av - bv : bv - av;
     });
-  }, [rows, query, judgement, profitableOnly, sortKey, sortDir]);
+  }, [rows, query, judgement, profitableOnly, realOnly, sortKey, sortDir]);
+
+  const realCount = useMemo(() => rows.filter((row) => row.priceBasis === "real").length, [rows]);
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -100,12 +170,14 @@ export function OpportunitiesTable({
       "商品",
       "仕入れチャネル",
       "販売チャネル",
+      "販売基準",
       "仕入れ価格",
       "送料",
       "ポイント相当",
       "販売想定",
       "下限",
       "上限",
+      "出品数",
       "損益分岐",
       "想定利益",
       "ROI",
@@ -119,12 +191,14 @@ export function OpportunitiesTable({
       row.product,
       row.buyChannel,
       row.sellChannel,
+      row.priceBasis === "real" ? "実売(Yahoo)" : "推定",
       row.buyPrice,
       row.buyShipping,
       row.pointValue,
       row.expectedSellPrice ?? "",
       row.expectedSellPriceLower ?? "",
       row.expectedSellPriceUpper ?? "",
+      row.sellListingCount ?? "",
       row.breakEvenPrice ?? "",
       row.estimatedProfit ?? "",
       row.roi == null ? "" : `${(row.roi * 100).toFixed(1)}%`,
@@ -189,15 +263,35 @@ export function OpportunitiesTable({
           黒字のみ
         </button>
 
+        <button
+          type="button"
+          className={`button secondary filter-chip ${realOnly ? "is-active" : ""}`}
+          aria-pressed={realOnly}
+          onClick={() => setRealOnly((value) => !value)}
+        >
+          実売のみ
+          <span className="filter-count">{realCount}</span>
+        </button>
+
         <span className="spacer" />
         <span className="muted tiny">
           {filtered.length} / {rows.length} 件
         </span>
+        <button className="button" type="button" onClick={refreshRealPrices} disabled={refreshState.loading}>
+          <Icon name="spark" />
+          {refreshState.loading ? "取得中..." : "実売価格を更新(Yahoo)"}
+        </button>
         <button className="button secondary" type="button" onClick={exportCsv} disabled={filtered.length === 0}>
           <Icon name="accounting" />
           CSV出力
         </button>
       </div>
+      {refreshState.message ? (
+        <div className={`alert ${refreshState.error ? "danger" : "info"} refresh-status`} role="status">
+          <Icon name={refreshState.error ? "warning" : "info"} />
+          <div className="alert-body">{refreshState.message}</div>
+        </div>
+      ) : null}
 
       {filtered.length > 0 ? (
         <div className="table-wrap">
@@ -246,11 +340,31 @@ export function OpportunitiesTable({
                     ) : null}
                   </td>
                   <td className="num">
-                    {formatNullableYen(item.expectedSellPrice)}
-                    <span className="cell-sub">
-                      下限 {formatNullableYen(item.expectedSellPriceLower)} / 上限{" "}
-                      {formatNullableYen(item.expectedSellPriceUpper)}
+                    <span className="sell-price-line">
+                      {formatNullableYen(item.expectedSellPrice)}
+                      <span className={`price-basis ${item.priceBasis === "real" ? "real" : "estimate"}`}>
+                        {item.priceBasis === "real" ? "実売Yahoo" : "推定"}
+                      </span>
                     </span>
+                    {item.priceBasis === "real" ? (
+                      <span className="cell-sub">
+                        出品{item.sellListingCount ?? 0}件 {formatNullableYen(item.expectedSellPriceLower)}〜
+                        {formatNullableYen(item.expectedSellPriceUpper)}
+                        {item.sellUrl ? (
+                          <>
+                            {" · "}
+                            <a className="sell-link" href={item.sellUrl} target="_blank" rel="noreferrer">
+                              最安を見る
+                            </a>
+                          </>
+                        ) : null}
+                      </span>
+                    ) : (
+                      <span className="cell-sub">
+                        下限 {formatNullableYen(item.expectedSellPriceLower)} / 上限{" "}
+                        {formatNullableYen(item.expectedSellPriceUpper)}
+                      </span>
+                    )}
                     <span className="cell-sub">損益分岐 {formatNullableYen(item.breakEvenPrice)}</span>
                   </td>
                   <td className="num strong" style={{ color: profitColor(item.estimatedProfit) }}>
