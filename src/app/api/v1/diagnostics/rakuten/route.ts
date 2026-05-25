@@ -16,6 +16,14 @@ type EnvShape = {
   looksLikeAccessKey: boolean;
 };
 
+type DirectCheck = {
+  ok: boolean;
+  status: number | null;
+  statusText?: string;
+  contentType?: string | null;
+  bodyPreview?: string;
+};
+
 export async function GET() {
   const envShape = Object.fromEntries(
     RAKUTEN_KEYS.map((key) => [key, summarizeEnv(env[key])])
@@ -29,7 +37,11 @@ export async function GET() {
     accessKey: envShape.RAKUTEN_ACCESS_KEY.present && envShape.RAKUTEN_ACCESS_KEY.looksLikeAccessKey
   };
 
-  const [search, ranking] = await Promise.all([diagnoseSearch(), diagnoseRanking()]);
+  const [search, ranking, directSearch] = await Promise.all([
+    diagnoseSearch(),
+    diagnoseRanking(),
+    diagnoseDirectSearch()
+  ]);
 
   return Response.json({
     ok: search.ok && ranking.ok,
@@ -41,7 +53,8 @@ export async function GET() {
       activeApplicationIdSource: env.RAKUTEN_APPLICATION_ID ? "RAKUTEN_APPLICATION_ID" : "RAKUTEN_APP_ID",
       checks: {
         search,
-        ranking
+        ranking,
+        directSearch
       }
     }
   });
@@ -78,6 +91,51 @@ async function diagnoseRanking() {
     };
   } catch (error) {
     return errorSummary(error);
+  }
+}
+
+async function diagnoseDirectSearch(): Promise<DirectCheck> {
+  const applicationId = env.RAKUTEN_APPLICATION_ID || env.RAKUTEN_APP_ID;
+  const accessKey = env.RAKUTEN_ACCESS_KEY;
+
+  if (!applicationId || !accessKey) {
+    return {
+      ok: false,
+      status: null,
+      bodyPreview: "RAKUTEN_APPLICATION_ID/RAKUTEN_APP_ID or RAKUTEN_ACCESS_KEY is missing."
+    };
+  }
+
+  const url = new URL("https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260401");
+  url.searchParams.set("format", "json");
+  url.searchParams.set("applicationId", applicationId);
+  url.searchParams.set("accessKey", accessKey);
+  url.searchParams.set("keyword", "スイッチ");
+  url.searchParams.set("hits", "1");
+  url.searchParams.set("page", "1");
+
+  try {
+    const response = await fetch(url, {
+      cache: "no-store",
+      headers: {
+        accept: "application/json"
+      }
+    });
+    const body = await response.text();
+
+    return {
+      ok: response.ok,
+      status: response.status,
+      statusText: response.statusText,
+      contentType: response.headers.get("content-type"),
+      bodyPreview: body.slice(0, 500)
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      status: null,
+      bodyPreview: error instanceof Error ? error.message : "Unknown direct fetch error"
+    };
   }
 }
 
