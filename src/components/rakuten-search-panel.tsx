@@ -15,7 +15,7 @@ const GENRES = [
   { label: "スマートフォン", value: "564500" }
 ];
 
-type SourceMode = "rakuten-ranking" | "manual" | "yahoo-keywords" | "google-trends";
+type SourceMode = "rakuten-ranking" | "manual" | "bulk" | "yahoo-keywords" | "google-trends";
 
 type RakutenItem = {
   itemCode: string;
@@ -30,18 +30,37 @@ type RakutenItem = {
   pointRate?: number;
 };
 
+type KeywordResult = {
+  keyword: string;
+  ok: boolean;
+  count: number;
+  returnedCount: number;
+  savedCount: number;
+  error?: {
+    code: string;
+    message: string;
+  };
+};
+
 type ApiResponse = {
   ok: boolean;
   data?: {
     keyword?: string;
+    keywords?: string[];
     title?: string;
-    count: number;
+    count?: number;
     page?: number;
     hits: number;
     pageCount?: number | null;
     saved: boolean;
     savedCount?: number;
+    totalReturnedCount?: number;
+    totalSavedCount?: number;
+    keywordCount?: number;
+    succeededCount?: number;
+    failedCount?: number;
     items: RakutenItem[];
+    results?: KeywordResult[];
   };
   error?: {
     code: string;
@@ -53,6 +72,7 @@ export function RakutenSearchPanel() {
   const [apiKey, setApiKey] = useState("");
   const [mode, setMode] = useState<SourceMode>("rakuten-ranking");
   const [keyword, setKeyword] = useState("joy-con");
+  const [bulkKeywords, setBulkKeywords] = useState("joy-con\nスイッチ\nプリンター");
   const [genreId, setGenreId] = useState("");
   const [hits, setHits] = useState(10);
   const [targetChannel, setTargetChannel] = useState("amazon_jp");
@@ -68,15 +88,24 @@ export function RakutenSearchPanel() {
   const summary = useMemo(() => {
     if (!response?.data) return null;
 
+    if (mode === "bulk") {
+      const totalReturned = response.data.totalReturnedCount ?? response.data.items.length;
+      const totalSaved = response.data.totalSavedCount ?? response.data.savedCount ?? 0;
+
+      return `${response.data.keywordCount ?? 0}キーワード / 成功 ${
+        response.data.succeededCount ?? 0
+      }件 / 取得 ${totalReturned.toLocaleString("ja-JP")}件 / DB保存 ${totalSaved}件`;
+    }
+
     const sourceLabel =
       mode === "rakuten-ranking"
         ? response.data.title ?? "楽天ランキング"
         : response.data.keyword
-          ? `キーワード: ${response.data.keyword}`
+          ? `キーワード ${response.data.keyword}`
           : "検索結果";
     const savedLabel = response.data.saved ? `${response.data.savedCount ?? 0}件をDB保存` : "DB保存なし";
 
-    return `${sourceLabel} / ${response.data.count.toLocaleString("ja-JP")}件中 ${
+    return `${sourceLabel} / ${(response.data.count ?? 0).toLocaleString("ja-JP")}件中 ${
       response.data.items.length
     }件表示 / ${savedLabel}`;
   }, [mode, response]);
@@ -105,14 +134,15 @@ export function RakutenSearchPanel() {
           code: "source_not_ready",
           message:
             mode === "yahoo-keywords"
-              ? "Yahoo!人気キーワード連携は次フェーズで実装します。まず楽天ランキングから候補取得できます。"
-              : "Googleトレンド連携はAPI利用条件の確認後に実装します。まず楽天ランキングから候補取得できます。"
+              ? "Yahoo!人気キーワード連携は次フェーズで実装します。"
+              : "Googleトレンド連携は次フェーズで実装します。"
         }
       });
       return;
     }
 
     const trimmedKeyword = keyword.trim();
+    const normalizedBulkKeywords = splitKeywords(bulkKeywords);
 
     if (mode === "manual" && !trimmedKeyword) {
       setResponse({
@@ -125,32 +155,31 @@ export function RakutenSearchPanel() {
       return;
     }
 
+    if (mode === "bulk" && normalizedBulkKeywords.length === 0) {
+      setResponse({
+        ok: false,
+        error: {
+          code: "missing_keywords",
+          message: "複数キーワード検索では1件以上のキーワードを入力してください。"
+        }
+      });
+      return;
+    }
+
     sessionStorage.setItem(SESSION_API_KEY, trimmedApiKey);
     setIsLoading(true);
 
     try {
-      const endpoint =
-        mode === "rakuten-ranking"
-          ? `/api/v1/organizations/${DEMO_ORGANIZATION_ID}/rakuten/ranking`
-          : `/api/v1/organizations/${DEMO_ORGANIZATION_ID}/rakuten/search`;
-      const body =
-        mode === "rakuten-ranking"
-          ? {
-              genreId: genreId || undefined,
-              hits,
-              save,
-              targetChannel,
-              discoveredByUserId: DEMO_USER_ID
-            }
-          : {
-              keyword: trimmedKeyword,
-              hits,
-              page: 1,
-              sort: sort || undefined,
-              save,
-              targetChannel,
-              discoveredByUserId: DEMO_USER_ID
-            };
+      const endpoint = endpointForMode(mode);
+      const body = requestBodyForMode(mode, {
+        keyword: trimmedKeyword,
+        keywords: normalizedBulkKeywords,
+        genreId,
+        hits,
+        save,
+        sort,
+        targetChannel
+      });
 
       const result = await fetch(endpoint, {
         method: "POST",
@@ -187,11 +216,9 @@ export function RakutenSearchPanel() {
       <div className="spread rakuten-panel-head">
         <div>
           <h2 id="rakuten-search-title" className="panel-title">
-            候補取得
+            仕入れ候補取得
           </h2>
-          <p className="muted">
-            取得元を選んで、人気商品や手入力キーワードから商品候補をDBへ保存します。
-          </p>
+          <p className="muted">楽天市場の商品候補を取得して、商品・市場価格・仕入れ候補としてDB保存します。</p>
         </div>
         <span className="badge info">x-api-key required</span>
       </div>
@@ -230,7 +257,17 @@ export function RakutenSearchPanel() {
               checked={mode === "manual"}
               onChange={() => setMode("manual")}
             />
-            <span>手入力キーワード</span>
+            <span>単一キーワード</span>
+          </label>
+          <label className="radio-option">
+            <input
+              type="radio"
+              name="source-mode"
+              value="bulk"
+              checked={mode === "bulk"}
+              onChange={() => setMode("bulk")}
+            />
+            <span>複数キーワード</span>
           </label>
           <label className="radio-option">
             <input
@@ -267,7 +304,9 @@ export function RakutenSearchPanel() {
               ))}
             </select>
           </label>
-        ) : (
+        ) : null}
+
+        {mode === "manual" ? (
           <label className="field field-wide">
             <span className="field-label">検索キーワード</span>
             <input
@@ -275,10 +314,24 @@ export function RakutenSearchPanel() {
               value={keyword}
               onChange={(event) => setKeyword(event.target.value)}
               placeholder="例: joy-con, EH-NA0J, TS8530"
-              disabled={mode !== "manual"}
             />
           </label>
-        )}
+        ) : null}
+
+        {mode === "bulk" ? (
+          <label className="field field-wide">
+            <span className="field-label">複数キーワード</span>
+            <textarea
+              className="input"
+              value={bulkKeywords}
+              onChange={(event) => setBulkKeywords(event.target.value)}
+              rows={5}
+              placeholder={"joy-con\nスイッチ\nプリンター"}
+              style={{ minHeight: 132, resize: "vertical" }}
+            />
+            <span className="field-help">改行またはカンマ区切りで最大20件まで。</span>
+          </label>
+        ) : null}
 
         <label className="field">
           <span className="field-label">取得件数</span>
@@ -286,7 +339,7 @@ export function RakutenSearchPanel() {
             className="input"
             type="number"
             min={1}
-            max={mode === "rakuten-ranking" ? 100 : 30}
+            max={mode === "rakuten-ranking" ? 100 : mode === "bulk" ? 10 : 30}
             value={hits}
             onChange={(event) => setHits(Number(event.target.value))}
           />
@@ -303,7 +356,7 @@ export function RakutenSearchPanel() {
           </select>
         </label>
 
-        {mode === "manual" ? (
+        {mode === "manual" || mode === "bulk" ? (
           <label className="field">
             <span className="field-label">並び順</span>
             <select className="input" value={sort} onChange={(event) => setSort(event.target.value)}>
@@ -323,7 +376,7 @@ export function RakutenSearchPanel() {
 
         <div className="rakuten-form-actions">
           <button className="button" type="submit" disabled={isLoading}>
-            {isLoading ? "取得中..." : mode === "rakuten-ranking" ? "ランキングから候補取得" : "候補を取得"}
+            {buttonLabel(mode, isLoading)}
           </button>
           <button
             className="button secondary"
@@ -358,6 +411,8 @@ export function RakutenSearchPanel() {
               {response.data.saved ? "DB保存済み" : "プレビュー"}
             </span>
           </div>
+
+          {response.data.results ? <KeywordSummary results={response.data.results} /> : null}
 
           <div className="table-wrap rakuten-table">
             <table className="table">
@@ -407,6 +462,108 @@ export function RakutenSearchPanel() {
         </div>
       ) : null}
     </section>
+  );
+}
+
+function KeywordSummary({ results }: { results: KeywordResult[] }) {
+  return (
+    <div className="table-wrap rakuten-table">
+      <table className="table">
+        <thead>
+          <tr>
+            <th>キーワード</th>
+            <th className="num">取得</th>
+            <th className="num">保存</th>
+            <th>状態</th>
+          </tr>
+        </thead>
+        <tbody>
+          {results.map((result) => (
+            <tr key={result.keyword}>
+              <td>{result.keyword}</td>
+              <td className="num">{result.returnedCount}</td>
+              <td className="num">{result.savedCount}</td>
+              <td>{result.ok ? "成功" : result.error?.message ?? "失敗"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function endpointForMode(mode: SourceMode) {
+  if (mode === "rakuten-ranking") {
+    return `/api/v1/organizations/${DEMO_ORGANIZATION_ID}/rakuten/ranking`;
+  }
+
+  if (mode === "bulk") {
+    return `/api/v1/organizations/${DEMO_ORGANIZATION_ID}/rakuten/bulk-search`;
+  }
+
+  return `/api/v1/organizations/${DEMO_ORGANIZATION_ID}/rakuten/search`;
+}
+
+function requestBodyForMode(
+  mode: SourceMode,
+  values: {
+    keyword: string;
+    keywords: string[];
+    genreId: string;
+    hits: number;
+    save: boolean;
+    sort: string;
+    targetChannel: string;
+  }
+) {
+  if (mode === "rakuten-ranking") {
+    return {
+      genreId: values.genreId || undefined,
+      hits: values.hits,
+      save: values.save,
+      targetChannel: values.targetChannel,
+      discoveredByUserId: DEMO_USER_ID
+    };
+  }
+
+  if (mode === "bulk") {
+    return {
+      keywords: values.keywords,
+      hits: values.hits,
+      sort: values.sort || undefined,
+      save: values.save,
+      targetChannel: values.targetChannel,
+      discoveredByUserId: DEMO_USER_ID
+    };
+  }
+
+  return {
+    keyword: values.keyword,
+    hits: values.hits,
+    page: 1,
+    sort: values.sort || undefined,
+    save: values.save,
+    targetChannel: values.targetChannel,
+    discoveredByUserId: DEMO_USER_ID
+  };
+}
+
+function buttonLabel(mode: SourceMode, isLoading: boolean) {
+  if (isLoading) return "取得中...";
+  if (mode === "rakuten-ranking") return "ランキングから候補取得";
+  if (mode === "bulk") return "まとめて候補取得";
+
+  return "候補を取得";
+}
+
+function splitKeywords(value: string) {
+  return Array.from(
+    new Set(
+      value
+        .split(/[\n,]/)
+        .map((keyword) => keyword.trim())
+        .filter(Boolean)
+    )
   );
 }
 
