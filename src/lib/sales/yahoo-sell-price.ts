@@ -44,9 +44,12 @@ export async function refreshYahooSellPrices(
       organization_id: organizationId,
       deleted_at: null,
       status: { in: ["new", "watching", "approved"] },
-      NOT: { source_title: { contains: "ふるさと納税" } }
+      NOT: [
+        { source_title: { contains: "ふるさと納税" } },
+        { target_channel: "yahoo_shopping" }
+      ]
     },
-    orderBy: [{ estimated_profit_amount: "desc" }, { created_at: "desc" }],
+    orderBy: { updated_at: "asc" },
     take: limit,
     include: {
       products_sourcing_candidates_product_idToproducts: {
@@ -90,6 +93,7 @@ export async function refreshYahooSellPrices(
 
       if (!stats.matched || stats.min == null) {
         summary.noMatch += 1;
+        await touchCandidate(candidate.id);
         continue;
       }
 
@@ -102,6 +106,8 @@ export async function refreshYahooSellPrices(
       if (stats.confidence === "high" || stats.confidence === "medium") {
         await recomputeCandidateWithRealPrice(candidate, stats.min, stats);
         summary.updated += 1;
+      } else {
+        await touchCandidate(candidate.id);
       }
     } catch (error) {
       summary.errors.push({
@@ -285,6 +291,13 @@ async function recomputeCandidateWithRealPrice(
       recommended_max_purchase_quantity: estimate.recommendedMaxPurchaseQuantity,
       updated_at: new Date()
     }
+  });
+}
+
+async function touchCandidate(id: string) {
+  await prisma.sourcing_candidates.update({
+    where: { id },
+    data: { updated_at: new Date() }
   });
 }
 
