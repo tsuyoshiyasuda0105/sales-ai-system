@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { isFurusatoNozei } from "@/lib/sales/jan";
 
 export const DEMO_ORGANIZATION_ID = "00000000-0000-4000-8000-000000000101";
 
@@ -182,6 +183,7 @@ export async function listOpportunityRows(organizationId: string): Promise<Oppor
   });
 
   return [...crossChannelRows, ...candidateRows]
+    .filter((row) => !isFurusatoNozei(row.product))
     .sort((a, b) => {
       const profitA = a.estimatedProfit ?? Number.NEGATIVE_INFINITY;
       const profitB = b.estimatedProfit ?? Number.NEGATIVE_INFINITY;

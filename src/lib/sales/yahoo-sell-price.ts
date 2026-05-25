@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { searchYahooItems, YahooApiError, type NormalizedYahooItem } from "@/lib/integrations/yahoo-shopping";
 import { estimateSourcingProfit } from "@/lib/sales/profit";
+import { extractJanFromTitle } from "@/lib/sales/jan";
 
 export type YahooMatchConfidence = "high" | "medium" | "low";
 export type YahooMatchType = "jan" | "keyword" | "none";
@@ -42,7 +43,8 @@ export async function refreshYahooSellPrices(
     where: {
       organization_id: organizationId,
       deleted_at: null,
-      status: { in: ["new", "watching", "approved"] }
+      status: { in: ["new", "watching", "approved"] },
+      NOT: { source_title: { contains: "ふるさと納税" } }
     },
     orderBy: [{ estimated_profit_amount: "desc" }, { created_at: "desc" }],
     take: limit,
@@ -360,15 +362,6 @@ const ACCESSORY_WORDS = [
 
 function isLikelyAccessory(sourceTitle: string, itemName: string) {
   return ACCESSORY_WORDS.some((word) => itemName.includes(word) && !sourceTitle.includes(word));
-}
-
-export function extractJanFromTitle(title: string): string | null {
-  const normalized = title.normalize("NFKC");
-  const matches = normalized.match(/(?<!\d)\d{13}(?!\d)/g);
-
-  if (!matches) return null;
-
-  return matches.find((value) => value.startsWith("45") || value.startsWith("49")) ?? matches[0];
 }
 
 function titleSimilarity(a: string, b: string) {

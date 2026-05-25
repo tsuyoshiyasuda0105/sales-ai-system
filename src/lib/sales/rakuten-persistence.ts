@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import type { NormalizedRakutenItem } from "@/lib/integrations/rakuten";
 import { estimateSourcingProfit, type TargetSalesChannel } from "@/lib/sales/profit";
+import { extractJanFromTitle } from "@/lib/sales/jan";
 
 type SaveRakutenSearchOptions = {
   organizationId: string;
@@ -78,6 +79,8 @@ async function findOrCreateProductFromRakutenItem(
     return existingIdentifier.products_product_identifiers_product_idToproducts;
   }
 
+  const jan = extractJanFromTitle(item.itemName);
+
   return prisma.products.create({
     data: {
       organization_id: options.organizationId,
@@ -92,19 +95,34 @@ async function findOrCreateProductFromRakutenItem(
       created_by_user_id: options.discoveredByUserId,
       updated_by_user_id: options.discoveredByUserId,
       product_identifiers_product_identifiers_product_idToproducts: {
-        create: {
-          organization_id: options.organizationId,
-          identifier_type: "source_product_id",
-          identifier_value: item.itemCode,
-          source_channel: "rakuten",
-          is_primary: true,
-          confidence_score: 100,
-          metadata: {
-            itemUrl: item.itemUrl,
-            affiliateUrl: item.affiliateUrl,
-            shopName: item.shopName
-          }
-        }
+        create: [
+          {
+            organization_id: options.organizationId,
+            identifier_type: "source_product_id",
+            identifier_value: item.itemCode,
+            source_channel: "rakuten",
+            is_primary: true,
+            confidence_score: 100,
+            metadata: {
+              itemUrl: item.itemUrl,
+              affiliateUrl: item.affiliateUrl,
+              shopName: item.shopName
+            }
+          },
+          ...(jan
+            ? [
+                {
+                  organization_id: options.organizationId,
+                  identifier_type: "jan" as const,
+                  identifier_value: jan,
+                  source_channel: "rakuten" as const,
+                  is_primary: false,
+                  confidence_score: 80,
+                  metadata: { extractedFrom: "rakuten_title" }
+                }
+              ]
+            : [])
+        ]
       }
     }
   });
