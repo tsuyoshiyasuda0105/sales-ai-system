@@ -1,6 +1,8 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { Icon } from "@/components/icons";
 
 const DEMO_ORGANIZATION_ID = "00000000-0000-4000-8000-000000000101";
 const DEMO_USER_ID = "00000000-0000-4000-8000-000000000001";
@@ -108,6 +110,16 @@ export function RakutenSearchPanel() {
     return `${sourceLabel} / ${(response.data.count ?? 0).toLocaleString("ja-JP")}件中 ${
       response.data.items.length
     }件表示 / ${savedLabel}`;
+  }, [mode, response]);
+
+  const savedTotal = useMemo(() => {
+    if (!response?.data?.saved) return 0;
+
+    if (mode === "bulk") {
+      return response.data.totalSavedCount ?? response.data.savedCount ?? 0;
+    }
+
+    return response.data.savedCount ?? 0;
   }, [mode, response]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -411,6 +423,22 @@ export function RakutenSearchPanel() {
               {response.data.saved ? "DB保存済み" : "プレビュー"}
             </span>
           </div>
+
+          {savedTotal > 0 ? (
+            <div className="alert info rakuten-cta" role="status">
+              <Icon name="opportunity" />
+              <div className="cta-text">
+                <div className="alert-title">{savedTotal}件を仕入れ候補として保存しました</div>
+                <div className="alert-body">価格差チャンスと商品一覧で、利益・ROI・A/B/C/NG判定を確認できます。</div>
+              </div>
+              <Link className="button" href="/opportunities">
+                価格差チャンスを見る
+              </Link>
+              <Link className="button secondary" href="/products">
+                商品一覧
+              </Link>
+            </div>
+          ) : null}
 
           {response.data.results ? <KeywordSummary results={response.data.results} /> : null}
 

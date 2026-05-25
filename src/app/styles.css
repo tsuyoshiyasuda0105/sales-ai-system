@@ -1272,3 +1272,86 @@ p {
     transition: none !important;
   }
 }
+
+/* ===================== Opportunities filters (additive) ===================== */
+
+.filter-group {
+  display: inline-flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.filter-chip {
+  padding: 8px 12px;
+}
+
+.filter-chip.is-active {
+  background: var(--c-primary-soft);
+  border-color: var(--c-primary);
+  color: var(--c-primary-soft-text);
+}
+
+.filter-count {
+  margin-left: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--c-text-muted);
+}
+
+.filter-chip.is-active .filter-count {
+  color: var(--c-primary-soft-text);
+}
+
+.th-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 700;
+  letter-spacing: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.th-sort:hover {
+  color: var(--c-primary);
+}
+
+.th-sort-ind {
+  font-size: 10px;
+  color: var(--c-text-muted);
+}
+
+.th-sort.is-active,
+.th-sort.is-active .th-sort-ind {
+  color: var(--c-primary);
+}
+
+/* Post-save CTA in the Rakuten panel */
+.rakuten-cta {
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.rakuten-cta .cta-text {
+  flex: 1 1 220px;
+}
+
+/* Product card → opportunities cross-link */
+.product-db-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: var(--sp-3);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--c-primary);
+}
+
+.product-db-link:hover {
+  color: var(--c-primary-hover);
+  text-decoration: underline;
+}

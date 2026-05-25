@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { AppShell } from "@/components/app-shell";
 import { Icon } from "@/components/icons";
 import { gradeClass } from "@/lib/format";
@@ -95,6 +96,14 @@ export default async function ProductsPage() {
                     <span className="cell-sub">市場価格はまだありません。</span>
                   )}
                 </div>
+
+                <Link
+                  className="product-db-link"
+                  href={`/opportunities?q=${encodeURIComponent(product.title)}`}
+                >
+                  <Icon name="opportunity" style={{ width: 14, height: 14 }} />
+                  価格差チャンスで見る
+                </Link>
               </article>
             );
           })}
