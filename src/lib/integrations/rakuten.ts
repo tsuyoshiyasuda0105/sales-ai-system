@@ -4,6 +4,8 @@ const RAKUTEN_ICHIBA_SEARCH_URL_2022 =
   "https://app.rakuten.co.jp/services/api/IchibaItem/Search/20220601";
 const RAKUTEN_ICHIBA_SEARCH_URL_2026 =
   "https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260401";
+const RAKUTEN_ICHIBA_RANKING_URL =
+  "https://openapi.rakuten.co.jp/ichibaranking/api/IchibaItem/Ranking/20220601";
 
 export type RakutenSearchParams = {
   keyword: string;
@@ -13,6 +15,13 @@ export type RakutenSearchParams = {
   minPrice?: number;
   maxPrice?: number;
   sort?: string;
+};
+
+export type RakutenRankingParams = {
+  genreId?: string;
+  age?: string;
+  sex?: string;
+  hits?: number;
 };
 
 export type NormalizedRakutenItem = {
@@ -34,6 +43,7 @@ export type NormalizedRakutenItem = {
 };
 
 type RakutenApiItem = {
+  rank?: number;
   itemCode?: string;
   itemName?: string;
   itemPrice?: number;
@@ -61,6 +71,13 @@ type RakutenApiResponse = {
   hits?: number;
   carrier?: number;
   pageCount?: number;
+};
+
+type RakutenRankingResponse = {
+  Items?: Array<{ Item?: RakutenApiItem } | RakutenApiItem>;
+  items?: Array<{ item?: RakutenApiItem } | RakutenApiItem>;
+  title?: string;
+  lastBuildDate?: string;
 };
 
 type RakutenErrorResponse = {
@@ -144,6 +161,69 @@ export async function searchRakutenItems(params: RakutenSearchParams) {
     hits: data.hits ?? params.hits ?? 10,
     pageCount: data.pageCount ?? null,
     items: normalizeRakutenItems(data.Items ?? data.items ?? [])
+  };
+}
+
+export async function getRakutenRankingItems(params: RakutenRankingParams = {}) {
+  const applicationId = env.RAKUTEN_APPLICATION_ID || env.RAKUTEN_APP_ID;
+  const accessKey = env.RAKUTEN_ACCESS_KEY;
+
+  if (!applicationId) {
+    throw new RakutenApiError("RAKUTEN_APPLICATION_ID or RAKUTEN_APP_ID is not configured.", 500);
+  }
+
+  const url = new URL(RAKUTEN_ICHIBA_RANKING_URL);
+  url.searchParams.set("format", "json");
+  url.searchParams.set("formatVersion", "2");
+  url.searchParams.set("applicationId", applicationId);
+
+  if (accessKey) {
+    url.searchParams.set("accessKey", accessKey);
+  }
+
+  if (env.RAKUTEN_AFFILIATE_ID) {
+    url.searchParams.set("affiliateId", env.RAKUTEN_AFFILIATE_ID);
+  }
+
+  if (params.genreId) {
+    url.searchParams.set("genreId", params.genreId);
+  }
+
+  if (params.age) {
+    url.searchParams.set("age", params.age);
+  }
+
+  if (params.sex) {
+    url.searchParams.set("sex", params.sex);
+  }
+
+  const response = await fetch(url, {
+    headers: {
+      accept: "application/json"
+    },
+    next: { revalidate: 300 }
+  });
+
+  const payload = (await response.json().catch(() => null)) as RakutenRankingResponse | RakutenErrorResponse | null;
+
+  if (!response.ok) {
+    const message =
+      payload && "error" in payload && payload.error
+        ? [payload.error, payload.error_description].filter(Boolean).join(": ")
+        : "Rakuten ranking API request failed.";
+    throw new RakutenApiError(message, response.status);
+  }
+
+  const data = payload as RakutenRankingResponse;
+  const allItems = normalizeRakutenItems(data.Items ?? data.items ?? []);
+  const hits = clamp(params.hits ?? 30, 1, 100);
+
+  return {
+    title: data.title ?? "Rakuten Ranking",
+    lastBuildDate: data.lastBuildDate ?? null,
+    count: allItems.length,
+    hits,
+    items: allItems.slice(0, hits)
   };
 }
 
