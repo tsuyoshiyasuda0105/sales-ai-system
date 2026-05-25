@@ -20,6 +20,15 @@ type JudgementFilter = "all" | "A" | "B" | "C" | "NG";
 type SortKey = "buyPrice" | "expected" | "profit" | "roi";
 type SortDir = "asc" | "desc";
 
+type EffectiveRow = OpportunityRow & {
+  extraSavings: number;
+  effNetCost: number;
+  effProfit: number | null;
+  effRoi: number | null;
+  effBreakEven: number | null;
+  effJudgement: "A" | "B" | "C" | "NG";
+};
+
 const JUDGEMENTS: { key: JudgementFilter; label: string }[] = [
   { key: "all", label: "すべて" },
   { key: "A", label: "A" },
@@ -50,6 +59,8 @@ export function OpportunitiesTable({
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [refreshState, setRefreshState] = useState<RefreshState>({ loading: false });
+  const [pointRate, setPointRate] = useState(0);
+  const [couponRate, setCouponRate] = useState(0);
 
   async function refreshRealPrices() {
     const apiKey = (typeof window !== "undefined" && sessionStorage.getItem(SESSION_API_KEY)) || "";
@@ -105,18 +116,36 @@ export function OpportunitiesTable({
     }
   }
 
+  const simActive = pointRate > 0 || couponRate > 0;
+
+  const computed = useMemo<EffectiveRow[]>(() => {
+    const rate = (pointRate + couponRate) / 100;
+
+    return rows.map((row) => {
+      const baseNetCost = row.buyPrice + row.buyShipping - row.pointValue;
+      const extraSavings = Math.round(row.buyPrice * rate);
+      const effNetCost = Math.max(1, baseNetCost - extraSavings);
+      const effProfit = row.estimatedProfit == null ? null : row.estimatedProfit + extraSavings;
+      const effRoi = effProfit == null ? null : effProfit / effNetCost;
+      const effBreakEven = row.breakEvenPrice == null ? null : Math.max(0, row.breakEvenPrice - extraSavings);
+      const effJudgement = simActive ? judgementFromMetrics(effProfit, effRoi) : row.judgement;
+
+      return { ...row, extraSavings, effNetCost, effProfit, effRoi, effBreakEven, effJudgement };
+    });
+  }, [rows, pointRate, couponRate, simActive]);
+
   const counts = useMemo(() => {
-    const base: Record<JudgementFilter, number> = { all: rows.length, A: 0, B: 0, C: 0, NG: 0 };
-    for (const row of rows) base[row.judgement] += 1;
+    const base: Record<JudgementFilter, number> = { all: computed.length, A: 0, B: 0, C: 0, NG: 0 };
+    for (const row of computed) base[row.effJudgement] += 1;
 
     return base;
-  }, [rows]);
+  }, [computed]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const next = rows.filter((row) => {
-      if (judgement !== "all" && row.judgement !== judgement) return false;
-      if (profitableOnly && !(row.estimatedProfit != null && row.estimatedProfit > 0)) return false;
+    const next = computed.filter((row) => {
+      if (judgement !== "all" && row.effJudgement !== judgement) return false;
+      if (profitableOnly && !(row.effProfit != null && row.effProfit > 0)) return false;
       if (realOnly && row.priceBasis !== "real") return false;
       if (q) {
         const haystack = `${row.product} ${row.buyChannel} ${row.sellChannel} ${row.risk}`.toLowerCase();
@@ -128,16 +157,16 @@ export function OpportunitiesTable({
 
     if (!sortKey) return next;
 
-    const pick = (row: OpportunityRow): number | null => {
+    const pick = (row: EffectiveRow): number | null => {
       switch (sortKey) {
         case "buyPrice":
           return row.buyPrice;
         case "expected":
           return row.expectedSellPrice;
         case "profit":
-          return row.estimatedProfit;
+          return row.effProfit;
         case "roi":
-          return row.roi;
+          return row.effRoi;
       }
     };
 
@@ -150,9 +179,9 @@ export function OpportunitiesTable({
 
       return sortDir === "asc" ? av - bv : bv - av;
     });
-  }, [rows, query, judgement, profitableOnly, realOnly, sortKey, sortDir]);
+  }, [computed, query, judgement, profitableOnly, realOnly, sortKey, sortDir]);
 
-  const realCount = useMemo(() => rows.filter((row) => row.priceBasis === "real").length, [rows]);
+  const realCount = useMemo(() => computed.filter((row) => row.priceBasis === "real").length, [computed]);
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -174,6 +203,8 @@ export function OpportunitiesTable({
       "仕入れ価格",
       "送料",
       "ポイント相当",
+      "追加還元",
+      "実質原価",
       "販売想定",
       "下限",
       "上限",
@@ -187,7 +218,7 @@ export function OpportunitiesTable({
     ];
 
     const lines = filtered.map((row) => [
-      row.judgement,
+      row.effJudgement,
       row.product,
       row.buyChannel,
       row.sellChannel,
@@ -195,13 +226,15 @@ export function OpportunitiesTable({
       row.buyPrice,
       row.buyShipping,
       row.pointValue,
+      row.extraSavings,
+      row.effNetCost,
       row.expectedSellPrice ?? "",
       row.expectedSellPriceLower ?? "",
       row.expectedSellPriceUpper ?? "",
       row.sellListingCount ?? "",
-      row.breakEvenPrice ?? "",
-      row.estimatedProfit ?? "",
-      row.roi == null ? "" : `${(row.roi * 100).toFixed(1)}%`,
+      row.effBreakEven ?? "",
+      row.effProfit ?? "",
+      row.effRoi == null ? "" : `${(row.effRoi * 100).toFixed(1)}%`,
       row.status,
       row.risk,
       row.sourceUrl ?? ""
@@ -293,6 +326,52 @@ export function OpportunitiesTable({
         </div>
       ) : null}
 
+      <div className={`sim-bar ${simActive ? "is-active" : ""}`}>
+        <Icon name="yen" />
+        <span className="sim-title">実質還元シミュレーション</span>
+        <label className="sim-field">
+          ポイント還元
+          <input
+            className="sim-input"
+            type="number"
+            min={0}
+            max={50}
+            value={pointRate}
+            onChange={(event) => setPointRate(clampRate(event.target.value))}
+          />
+          <span className="sim-unit">%</span>
+        </label>
+        <label className="sim-field">
+          クーポン
+          <input
+            className="sim-input"
+            type="number"
+            min={0}
+            max={50}
+            value={couponRate}
+            onChange={(event) => setCouponRate(clampRate(event.target.value))}
+          />
+          <span className="sim-unit">%</span>
+        </label>
+        {simActive ? (
+          <button
+            className="button ghost"
+            type="button"
+            onClick={() => {
+              setPointRate(0);
+              setCouponRate(0);
+            }}
+          >
+            リセット
+          </button>
+        ) : null}
+        <span className="sim-note">
+          {simActive
+            ? "楽天の実質還元を原価に反映して利益・ROI・判定を再計算中(表示のみ・DBは変更しません)"
+            : "楽天のSPU/キャンペーン/クーポンの実質還元率を入れると、黒字になる商品が見えます"}
+        </span>
+      </div>
+
       {filtered.length > 0 ? (
         <div className="table-wrap">
           <table className="table">
@@ -314,10 +393,10 @@ export function OpportunitiesTable({
                 <tr key={item.id}>
                   <td>
                     <span
-                      className={`grade ${gradeClass(item.judgement)}`}
-                      title={JUDGEMENT_TITLES[item.judgement] ?? item.judgement}
+                      className={`grade ${gradeClass(item.effJudgement)}`}
+                      title={JUDGEMENT_TITLES[item.effJudgement] ?? item.effJudgement}
                     >
-                      {item.judgement}
+                      {item.effJudgement}
                     </span>
                   </td>
                   <td>
@@ -336,6 +415,11 @@ export function OpportunitiesTable({
                     {item.buyShipping || item.pointValue ? (
                       <span className="cell-sub">
                         送料 {formatYen(item.buyShipping)} / ポイント {formatYen(item.pointValue)}
+                      </span>
+                    ) : null}
+                    {simActive ? (
+                      <span className="cell-sub sim-cost">
+                        実質 {formatYen(item.effNetCost)}（還元 −{formatYen(item.extraSavings)}）
                       </span>
                     ) : null}
                   </td>
@@ -365,12 +449,12 @@ export function OpportunitiesTable({
                         {formatNullableYen(item.expectedSellPriceUpper)}
                       </span>
                     )}
-                    <span className="cell-sub">損益分岐 {formatNullableYen(item.breakEvenPrice)}</span>
+                    <span className="cell-sub">損益分岐 {formatNullableYen(item.effBreakEven)}</span>
                   </td>
-                  <td className="num strong" style={{ color: profitColor(item.estimatedProfit) }}>
-                    {formatNullableYen(item.estimatedProfit)}
+                  <td className="num strong" style={{ color: profitColor(item.effProfit) }}>
+                    {formatNullableYen(item.effProfit)}
                   </td>
-                  <td className="num">{formatNullablePct(item.roi)}</td>
+                  <td className="num">{formatNullablePct(item.effRoi)}</td>
                   <td>
                     <span className="badge neutral">{item.status}</span>
                   </td>
@@ -449,6 +533,22 @@ function profitColor(amount: number | null) {
   if (amount <= 0) return "var(--c-danger)";
 
   return "var(--c-success)";
+}
+
+function judgementFromMetrics(profit: number | null, roi: number | null): "A" | "B" | "C" | "NG" {
+  if (profit == null || roi == null) return "C";
+  if (profit <= 0 || roi <= 0) return "NG";
+  if (profit >= 2000 && roi >= 0.2) return "A";
+  if (profit >= 800 && roi >= 0.1) return "B";
+
+  return "C";
+}
+
+function clampRate(value: string) {
+  const parsed = Number.parseFloat(value);
+  if (!Number.isFinite(parsed)) return 0;
+
+  return Math.min(50, Math.max(0, parsed));
 }
 
 function csvCell(value: string | number) {
