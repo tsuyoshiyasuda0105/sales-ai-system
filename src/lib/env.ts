@@ -19,6 +19,8 @@ const envSchema = z.object({
   RAKUTEN_APP_ID: z.string().optional(),
   RAKUTEN_ACCESS_KEY: z.string().optional(),
   RAKUTEN_AFFILIATE_ID: z.string().optional(),
+  RAKUTEN_PROXY_URL: z.string().url().optional(),
+  RAKUTEN_PROXY_API_KEY: z.string().optional(),
   YAHOO_CLIENT_ID: z.string().optional(),
   YAHOO_CLIENT_SECRET: z.string().optional(),
   AMAZON_SP_API_ENABLED: z.string().default("false")

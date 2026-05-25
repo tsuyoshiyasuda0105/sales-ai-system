@@ -7,6 +7,8 @@ const RAKUTEN_ICHIBA_SEARCH_URL_2026 =
 const RAKUTEN_ICHIBA_RANKING_URL =
   "https://openapi.rakuten.co.jp/ichibaranking/api/IchibaItem/Ranking/20220601";
 
+type RakutenProxyOperation = "ichiba_item_search" | "ichiba_item_ranking";
+
 export type RakutenSearchParams = {
   keyword: string;
   hits?: number;
@@ -81,7 +83,7 @@ type RakutenRankingResponse = {
 };
 
 type RakutenErrorResponse = {
-  error?: string;
+  error?: string | { code?: string; message?: string };
   error_description?: string;
   errors?: {
     errorCode?: number;
@@ -102,58 +104,40 @@ export class RakutenApiError extends Error {
 }
 
 export async function searchRakutenItems(params: RakutenSearchParams) {
-  const applicationId = env.RAKUTEN_APPLICATION_ID || env.RAKUTEN_APP_ID;
-  const accessKey = env.RAKUTEN_ACCESS_KEY;
-
-  if (!applicationId) {
-    throw new RakutenApiError("RAKUTEN_APPLICATION_ID or RAKUTEN_APP_ID is not configured.", 500);
-  }
-
-  const url = new URL(accessKey ? RAKUTEN_ICHIBA_SEARCH_URL_2026 : RAKUTEN_ICHIBA_SEARCH_URL_2022);
-  url.searchParams.set("format", "json");
-  url.searchParams.set("applicationId", applicationId);
-  url.searchParams.set("keyword", params.keyword);
-  url.searchParams.set("hits", String(clamp(params.hits ?? 10, 1, 30)));
-  url.searchParams.set("page", String(Math.max(1, params.page ?? 1)));
-
-  if (env.RAKUTEN_AFFILIATE_ID) {
-    url.searchParams.set("affiliateId", env.RAKUTEN_AFFILIATE_ID);
-  }
-
-  if (accessKey) {
-    url.searchParams.set("accessKey", accessKey);
-  }
+  const requestParams = new URLSearchParams();
+  requestParams.set("format", "json");
+  requestParams.set("keyword", params.keyword);
+  requestParams.set("hits", String(clamp(params.hits ?? 10, 1, 30)));
+  requestParams.set("page", String(Math.max(1, params.page ?? 1)));
 
   if (params.genreId) {
-    url.searchParams.set("genreId", params.genreId);
+    requestParams.set("genreId", params.genreId);
   }
 
   if (Number.isFinite(params.minPrice)) {
-    url.searchParams.set("minPrice", String(params.minPrice));
+    requestParams.set("minPrice", String(params.minPrice));
   }
 
   if (Number.isFinite(params.maxPrice)) {
-    url.searchParams.set("maxPrice", String(params.maxPrice));
+    requestParams.set("maxPrice", String(params.maxPrice));
   }
 
   if (params.sort) {
-    url.searchParams.set("sort", params.sort);
+    requestParams.set("sort", params.sort);
   }
 
-  const response = await fetch(url, {
-    headers: {
-      accept: "application/json"
-    },
-    next: { revalidate: 300 }
-  });
-
-  const payload = (await response.json().catch(() => null)) as RakutenApiResponse | RakutenErrorResponse | null;
-
-  if (!response.ok) {
-    const error = rakutenErrorDetails(payload);
-    throw new RakutenApiError(error.message, response.status, error.code);
-  }
-
+  const url = env.RAKUTEN_PROXY_URL
+    ? null
+    : buildDirectRakutenUrl(
+        env.RAKUTEN_ACCESS_KEY ? RAKUTEN_ICHIBA_SEARCH_URL_2026 : RAKUTEN_ICHIBA_SEARCH_URL_2022,
+        requestParams
+      );
+  const payload = await fetchRakutenPayload<RakutenApiResponse>(
+    "ichiba_item_search",
+    requestParams,
+    url,
+    "Rakuten API request failed."
+  );
   const data = payload as RakutenApiResponse;
 
   return {
@@ -168,52 +152,29 @@ export async function searchRakutenItems(params: RakutenSearchParams) {
 }
 
 export async function getRakutenRankingItems(params: RakutenRankingParams = {}) {
-  const applicationId = env.RAKUTEN_APPLICATION_ID || env.RAKUTEN_APP_ID;
-  const accessKey = env.RAKUTEN_ACCESS_KEY;
-
-  if (!applicationId) {
-    throw new RakutenApiError("RAKUTEN_APPLICATION_ID or RAKUTEN_APP_ID is not configured.", 500);
-  }
-
-  const url = new URL(RAKUTEN_ICHIBA_RANKING_URL);
-  url.searchParams.set("format", "json");
-  url.searchParams.set("formatVersion", "2");
-  url.searchParams.set("applicationId", applicationId);
-
-  if (accessKey) {
-    url.searchParams.set("accessKey", accessKey);
-  }
-
-  if (env.RAKUTEN_AFFILIATE_ID) {
-    url.searchParams.set("affiliateId", env.RAKUTEN_AFFILIATE_ID);
-  }
+  const requestParams = new URLSearchParams();
+  requestParams.set("format", "json");
+  requestParams.set("formatVersion", "2");
 
   if (params.genreId) {
-    url.searchParams.set("genreId", params.genreId);
+    requestParams.set("genreId", params.genreId);
   }
 
   if (params.age) {
-    url.searchParams.set("age", params.age);
+    requestParams.set("age", params.age);
   }
 
   if (params.sex) {
-    url.searchParams.set("sex", params.sex);
+    requestParams.set("sex", params.sex);
   }
 
-  const response = await fetch(url, {
-    headers: {
-      accept: "application/json"
-    },
-    next: { revalidate: 300 }
-  });
-
-  const payload = (await response.json().catch(() => null)) as RakutenRankingResponse | RakutenErrorResponse | null;
-
-  if (!response.ok) {
-    const error = rakutenErrorDetails(payload, "Rakuten ranking API request failed.");
-    throw new RakutenApiError(error.message, response.status, error.code);
-  }
-
+  const url = env.RAKUTEN_PROXY_URL ? null : buildDirectRakutenUrl(RAKUTEN_ICHIBA_RANKING_URL, requestParams);
+  const payload = await fetchRakutenPayload<RakutenRankingResponse>(
+    "ichiba_item_ranking",
+    requestParams,
+    url,
+    "Rakuten ranking API request failed."
+  );
   const data = payload as RakutenRankingResponse;
   const allItems = normalizeRakutenItems(data.Items ?? data.items ?? []);
   const hits = clamp(params.hits ?? 30, 1, 100);
@@ -225,6 +186,95 @@ export async function getRakutenRankingItems(params: RakutenRankingParams = {}) 
     hits,
     items: allItems.slice(0, hits)
   };
+}
+
+async function fetchRakutenPayload<TPayload>(
+  operation: RakutenProxyOperation,
+  requestParams: URLSearchParams,
+  directUrl: URL | null,
+  fallbackErrorMessage: string
+) {
+  const response = env.RAKUTEN_PROXY_URL
+    ? await fetchRakutenViaProxy(operation, requestParams)
+    : directUrl
+      ? await fetch(directUrl, {
+        headers: {
+          accept: "application/json"
+        },
+        next: { revalidate: 300 }
+      })
+      : null;
+
+  if (!response) {
+    throw new RakutenApiError("Rakuten direct URL could not be built.", 500);
+  }
+
+  const payload = (await response.json().catch(() => null)) as
+    | TPayload
+    | RakutenErrorResponse
+    | null;
+
+  if (!response.ok) {
+    const error = rakutenErrorDetails(payload, fallbackErrorMessage);
+    throw new RakutenApiError(error.message, response.status, error.code);
+  }
+
+  if (!payload) {
+    throw new RakutenApiError("Rakuten API returned an empty or invalid JSON response.", 502);
+  }
+
+  return payload as TPayload;
+}
+
+async function fetchRakutenViaProxy(operation: RakutenProxyOperation, requestParams: URLSearchParams) {
+  if (!env.RAKUTEN_PROXY_URL) {
+    throw new RakutenApiError("RAKUTEN_PROXY_URL is not configured.", 500);
+  }
+
+  const headers: Record<string, string> = {
+    accept: "application/json",
+    "content-type": "application/json"
+  };
+
+  if (env.RAKUTEN_PROXY_API_KEY) {
+    headers["x-proxy-api-key"] = env.RAKUTEN_PROXY_API_KEY;
+  }
+
+  return fetch(env.RAKUTEN_PROXY_URL, {
+    method: "POST",
+    headers,
+    cache: "no-store",
+    body: JSON.stringify({
+      operation,
+      params: Object.fromEntries(requestParams)
+    })
+  });
+}
+
+function buildDirectRakutenUrl(baseUrl: string, requestParams: URLSearchParams) {
+  const applicationId = env.RAKUTEN_APPLICATION_ID || env.RAKUTEN_APP_ID;
+
+  if (!applicationId) {
+    throw new RakutenApiError("RAKUTEN_APPLICATION_ID or RAKUTEN_APP_ID is not configured.", 500);
+  }
+
+  const url = new URL(baseUrl);
+
+  for (const [key, value] of requestParams) {
+    url.searchParams.set(key, value);
+  }
+
+  url.searchParams.set("applicationId", applicationId);
+
+  if (env.RAKUTEN_ACCESS_KEY) {
+    url.searchParams.set("accessKey", env.RAKUTEN_ACCESS_KEY);
+  }
+
+  if (env.RAKUTEN_AFFILIATE_ID) {
+    url.searchParams.set("affiliateId", env.RAKUTEN_AFFILIATE_ID);
+  }
+
+  return url;
 }
 
 function normalizeRakutenItems(items: RakutenApiResponse["Items"] | RakutenApiResponse["items"]): NormalizedRakutenItem[] {
@@ -276,30 +326,39 @@ function firstImageUrl(images: RakutenApiItem["mediumImageUrls"]) {
 }
 
 function rakutenErrorDetails(
-  payload: RakutenApiResponse | RakutenRankingResponse | RakutenErrorResponse | null,
+  payload: unknown,
   fallback = "Rakuten API request failed."
-) {
-  if (payload && "errors" in payload && payload.errors?.errorMessage) {
-    const code = payload.errors.errorMessage;
+): { code?: string; message: string } {
+  const errorPayload = payload as RakutenErrorResponse | null;
+
+  if (errorPayload?.errors?.errorMessage) {
+    const code = errorPayload.errors.errorMessage;
 
     if (code === "CLIENT_IP_NOT_ALLOWED") {
       return {
         code: "client_ip_not_allowed",
         message:
-          "Rakuten API rejected the request: CLIENT_IP_NOT_ALLOWED. Vercel の送信元IPが楽天アプリ側で許可されていません。楽天アプリのIP制限を解除するか、固定IPのバックエンドから実行してください。"
+          "Rakuten API rejected the request: CLIENT_IP_NOT_ALLOWED. Vercel's outbound IP is not allowed by the Rakuten application settings. Disable Rakuten IP restriction or use RAKUTEN_PROXY_URL with a fixed-IP proxy."
       };
     }
 
     return {
       code: code.toLowerCase(),
-      message: [code, payload.errors.errorCode].filter(Boolean).join(": ")
+      message: [code, errorPayload.errors.errorCode].filter(Boolean).join(": ")
     };
   }
 
-  if (payload && "error" in payload && payload.error) {
+  if (errorPayload?.error && typeof errorPayload.error === "object") {
     return {
-      code: payload.error,
-      message: [payload.error, payload.error_description].filter(Boolean).join(": ")
+      code: errorPayload.error.code ?? "rakuten_proxy_error",
+      message: errorPayload.error.message ?? fallback
+    };
+  }
+
+  if (typeof errorPayload?.error === "string") {
+    return {
+      code: errorPayload.error,
+      message: [errorPayload.error, errorPayload.error_description].filter(Boolean).join(": ")
     };
   }
 

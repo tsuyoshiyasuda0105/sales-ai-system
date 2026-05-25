@@ -14,6 +14,7 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:pull": "prisma db pull",
     "sourcing:recalculate": "tsx scripts/recalculate-sourcing-candidates.mjs",
+    "rakuten:proxy": "node scripts/rakuten-proxy-server.mjs",
     "jobs:worker": "tsx src/jobs/worker.ts",
     "jobs:scheduler": "tsx src/jobs/scheduler.ts"
   },
