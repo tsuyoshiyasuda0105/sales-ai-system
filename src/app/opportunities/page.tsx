@@ -79,7 +79,14 @@ export default async function OpportunitiesPage() {
                       </span>
                     ) : null}
                   </td>
-                  <td className="num">{formatNullableYen(item.expectedSellPrice)}</td>
+                  <td className="num">
+                    {formatNullableYen(item.expectedSellPrice)}
+                    <span className="cell-sub">
+                      下限 {formatNullableYen(item.expectedSellPriceLower)} / 上限{" "}
+                      {formatNullableYen(item.expectedSellPriceUpper)}
+                    </span>
+                    <span className="cell-sub">損益分岐 {formatNullableYen(item.breakEvenPrice)}</span>
+                  </td>
                   <td className="num strong" style={{ color: profitColor(item.estimatedProfit) }}>
                     {formatNullableYen(item.estimatedProfit)}
                   </td>

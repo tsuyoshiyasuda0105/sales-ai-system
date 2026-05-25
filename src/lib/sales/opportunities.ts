@@ -12,6 +12,9 @@ export type OpportunityRow = {
   buyShipping: number;
   pointValue: number;
   expectedSellPrice: number | null;
+  expectedSellPriceLower: number | null;
+  expectedSellPriceUpper: number | null;
+  breakEvenPrice: number | null;
   estimatedProfit: number | null;
   roi: number | null;
   judgement: "A" | "B" | "C" | "NG";
@@ -66,6 +69,18 @@ export async function listOpportunityRows(organizationId: string): Promise<Oppor
   const crossChannelRows = crossChannelOpportunities.map((opportunity) => {
     const estimatedProfit = decimalToNullableNumber(opportunity.estimated_profit_amount);
     const roi = decimalToNullableNumber(opportunity.estimated_roi);
+    const expectedSellPrice = decimalToNumber(opportunity.expected_sell_price_amount);
+    const sellPriceRange = sellPriceRangeFromExpected(expectedSellPrice);
+    const breakEvenPrice = Math.max(
+      0,
+      decimalToNumber(opportunity.buy_price_amount) +
+        decimalToNumber(opportunity.buy_shipping_amount) -
+        decimalToNumber(opportunity.buy_point_value_amount) +
+        decimalToNumber(opportunity.estimated_fee_amount) +
+        decimalToNumber(opportunity.estimated_tax_amount) +
+        decimalToNumber(opportunity.estimated_shipping_amount) +
+        decimalToNumber(opportunity.estimated_packaging_amount)
+    );
     const judgement = normalizeJudgement(String(opportunity.judgement), estimatedProfit, roi);
     const productTitle =
       opportunity.products_cross_channel_opportunities_product_idToproducts?.title ??
@@ -82,7 +97,10 @@ export async function listOpportunityRows(organizationId: string): Promise<Oppor
       buyPrice: decimalToNumber(opportunity.buy_price_amount),
       buyShipping: decimalToNumber(opportunity.buy_shipping_amount),
       pointValue: decimalToNumber(opportunity.buy_point_value_amount),
-      expectedSellPrice: decimalToNumber(opportunity.expected_sell_price_amount),
+      expectedSellPrice,
+      expectedSellPriceLower: sellPriceRange.lower,
+      expectedSellPriceUpper: sellPriceRange.upper,
+      breakEvenPrice,
       estimatedProfit,
       roi,
       judgement,
@@ -91,7 +109,7 @@ export async function listOpportunityRows(organizationId: string): Promise<Oppor
         opportunity.reason_summary ??
         riskLabel({
           status: String(opportunity.status),
-          expectedSellPrice: decimalToNumber(opportunity.expected_sell_price_amount),
+          expectedSellPrice,
           estimatedProfit,
           roi,
           expiresAt: opportunity.expires_at
@@ -109,6 +127,8 @@ export async function listOpportunityRows(organizationId: string): Promise<Oppor
     const estimatedProfit = decimalToNullableNumber(candidate.estimated_profit_amount);
     const roi = decimalToNullableNumber(candidate.estimated_roi);
     const expectedSellPrice = decimalToNullableNumber(candidate.target_expected_price_amount);
+    const sellPriceRange = sellPriceRangeFromExpected(expectedSellPrice);
+    const breakEvenPrice = decimalToNullableNumber(candidate.break_even_price_amount);
     const productTitle = candidate.products_sourcing_candidates_product_idToproducts?.title ?? candidate.source_title;
 
     return {
@@ -121,6 +141,9 @@ export async function listOpportunityRows(organizationId: string): Promise<Oppor
       buyShipping,
       pointValue,
       expectedSellPrice,
+      expectedSellPriceLower: sellPriceRange.lower,
+      expectedSellPriceUpper: sellPriceRange.upper,
+      breakEvenPrice,
       estimatedProfit,
       roi,
       judgement: judgementFromMetrics(estimatedProfit, roi),
@@ -161,6 +184,20 @@ function decimalToNullableNumber(value: { toNumber?: () => number } | number | n
   if (value == null) return null;
 
   return decimalToNumber(value);
+}
+
+function sellPriceRangeFromExpected(expectedSellPrice: number | null) {
+  if (expectedSellPrice == null) {
+    return {
+      lower: null,
+      upper: null
+    };
+  }
+
+  return {
+    lower: Math.round(expectedSellPrice * 0.9),
+    upper: Math.round(expectedSellPrice * 1.1)
+  };
 }
 
 function judgementFromMetrics(estimatedProfit: number | null, roi: number | null): OpportunityRow["judgement"] {
