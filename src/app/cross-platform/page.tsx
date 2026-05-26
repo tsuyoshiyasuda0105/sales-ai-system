@@ -78,15 +78,52 @@ function Comparison({
             <div className="strong num">{cheapestBuy == null ? "未取得" : yen(cheapestBuy)}</div>
           </div>
           <div>
-            <span className="muted tiny">実売最安(Yahoo)</span>
-            <div className="strong num">{bestSell == null ? "未取得" : yen(bestSell)}</div>
+            <span className="muted tiny">Yahoo市場最安(競合の床)</span>
+            <div className="strong num">
+              {bestSell == null ? "未取得" : yen(bestSell)}
+              {bestSell != null ? (
+                <span className="price-basis real" style={{ marginLeft: 6 }} title="Yahoo!ショッピングAPIから取得した実際の出品の最安値です。">
+                  実売
+                </span>
+              ) : null}
+            </div>
           </div>
           <div>
-            <span className="muted tiny">価格差(粗利・手数料別)</span>
+            <span className="muted tiny">Yahoo最安基準の差額(粗利・手数料別)</span>
             <div className="strong num" style={{ color: spreadColor(estimatedSpread) }}>
               {estimatedSpread == null ? "未算出" : yen(estimatedSpread)}
             </div>
           </div>
+          {comparison.amazonEstimate ? (
+            <>
+              <div>
+                <span className="muted tiny">Amazon想定売値</span>
+                <div className="strong num">
+                  {yen(comparison.amazonEstimate.expectedSellPrice)}
+                  <span
+                    className="price-basis estimate"
+                    style={{ marginLeft: 6 }}
+                    title="Amazon SP-API 未接続のため、楽天価格×1.35 の汎用係数による概算です。実出品は Amazon で別途確認してください。"
+                  >
+                    推定
+                  </span>
+                </div>
+              </div>
+              <div>
+                <span className="muted tiny">Amazon想定の推定利益(手数料込)</span>
+                <div
+                  className="strong num"
+                  style={{ color: spreadColor(comparison.amazonEstimate.estimatedProfit) }}
+                  title="Amazon の出品手数料・FBA・梱包を差し引いた推定利益です。Yahoo の差額は手数料別なので、直接比較せず別物として読んでください。"
+                >
+                  {yen(comparison.amazonEstimate.estimatedProfit)}
+                  <span className="price-basis estimate" style={{ marginLeft: 6 }}>
+                    推定
+                  </span>
+                </div>
+              </div>
+            </>
+          ) : null}
         </div>
       </div>
 
@@ -120,9 +157,19 @@ function Comparison({
       <div className="alert info" style={{ marginBottom: "var(--sp-4)" }}>
         <Icon name="info" />
         <div>
-          <div className="alert-title">メルカリ / ヤフオクは手動確認です</div>
+          <div className="alert-title">Amazon JP は推定値・メルカリ / ヤフオクは手動確認です</div>
           <div className="alert-body">
-            規約に配慮し自動取得は行いません。現在の自動取得は楽天(仕入れ)と Yahoo!ショッピング(実売)です。
+            自動取得しているのは楽天(仕入れ)と Yahoo!ショッピング(実売)のみです。
+            <strong> Amazon JP の想定売値は楽天価格×1.35 の汎用係数による概算</strong>で、実際の出品有無は
+            <a
+              href={amazonSearchUrl(comparison.title)}
+              target="_blank"
+              rel="noreferrer"
+              style={{ textDecoration: "underline", margin: "0 4px" }}
+            >
+              Amazon で別途確認
+            </a>
+            してください。メルカリ・ヤフオクは規約配慮で自動取得しません。
           </div>
         </div>
       </div>
@@ -165,7 +212,7 @@ function Comparison({
                   <td className="num strong">
                     {yen(row.effectiveCost)}
                     {isCheapestBuy ? <span className="badge good" style={{ marginLeft: 6 }}>仕入れ最安</span> : null}
-                    {isBestSell ? <span className="badge info" style={{ marginLeft: 6 }}>実売最安</span> : null}
+                    {isBestSell ? <span className="badge info" style={{ marginLeft: 6 }}>Yahoo最安</span> : null}
                   </td>
                   <td>{stockLabel(row.inStock)}</td>
                   <td>
@@ -181,6 +228,50 @@ function Comparison({
                 </tr>
               );
             })}
+            {comparison.amazonEstimate ? (
+              <tr key="amazon_jp:estimate">
+                <td>
+                  <span className="cell-main">Amazon JP</span>
+                  <span className="cell-sub">SP-API未接続のため概算値</span>
+                </td>
+                <td>
+                  <span className="badge neutral" title="実出品は未確認の推定値">
+                    販売(推定)
+                  </span>
+                </td>
+                <td className="num">{yen(comparison.amazonEstimate.expectedSellPrice)}</td>
+                <td className="num">—</td>
+                <td className="num">—</td>
+                <td className="num strong">
+                  {yen(comparison.amazonEstimate.expectedSellPrice)}
+                  <span
+                    className="price-basis estimate"
+                    style={{ marginLeft: 6 }}
+                    title="楽天価格×1.35 の汎用係数による推定。実際のAmazon相場はKeepa等で別途確認してください。"
+                  >
+                    推定
+                  </span>
+                </td>
+                <td>
+                  <span className="badge neutral" title="Amazonの実出品は未確認">
+                    要確認
+                  </span>
+                </td>
+                <td>
+                  <span className="cell-sub">—</span>
+                </td>
+                <td className="num">
+                  <a
+                    className="button ghost"
+                    href={amazonSearchUrl(comparison.title)}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Amazon で確認 ↗
+                  </a>
+                </td>
+              </tr>
+            ) : null}
           </tbody>
         </table>
       </div>
@@ -207,4 +298,8 @@ function truncate(value: string, max: number) {
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" });
+}
+
+function amazonSearchUrl(title: string) {
+  return `https://www.amazon.co.jp/s?k=${encodeURIComponent(title)}`;
 }

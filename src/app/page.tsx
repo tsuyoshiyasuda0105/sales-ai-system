@@ -106,28 +106,62 @@ export default async function Home() {
               </tr>
             </thead>
             <tbody>
-              {topOpportunities.map((item) => (
-                <tr key={item.id}>
-                  <td>
-                    <Link className="cell-link" href={crossPlatformHref(item)}>
-                      {item.product}
-                    </Link>
-                    <span className="cell-sub">{item.risk}</span>
-                  </td>
-                  <td>
-                    {item.buyChannel} <span className="muted">→</span> {item.sellChannel}
-                  </td>
-                  <td className="num strong" style={{ color: profitColor(item.estimatedProfit) }}>
-                    {item.estimatedProfit == null ? "未算出" : yen(item.estimatedProfit)}
-                  </td>
-                  <td className="num">{item.roi == null ? "未算出" : `${(item.roi * 100).toFixed(1)}%`}</td>
-                  <td>
-                    <span className={`grade ${gradeClass(item.judgement)}`} title={gradeMeaning[item.judgement]}>
-                      {item.judgement}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              {topOpportunities.map((item) => {
+                const isEstimate = item.priceBasis !== "real";
+                const estimateTitle =
+                  "Amazon SP-API 未接続のため、楽天価格×1.35 の汎用係数による概算です。実際の Amazon 出品有無は別途確認してください。";
+
+                return (
+                  <tr key={item.id}>
+                    <td>
+                      <Link className="cell-link" href={crossPlatformHref(item)}>
+                        {item.product}
+                      </Link>
+                      <span className="cell-sub">{item.risk}</span>
+                    </td>
+                    <td>
+                      <span>
+                        {item.buyChannel} <span className="muted">→</span> {item.sellChannel}
+                        {isEstimate ? (
+                          <span className="price-basis estimate" style={{ marginLeft: 6 }} title={estimateTitle}>
+                            推定
+                          </span>
+                        ) : null}
+                      </span>
+                      {item.sellChannel === "Amazon JP" ? (
+                        <span className="cell-sub">
+                          <a
+                            className="sell-link"
+                            href={amazonSearchUrl(item.product)}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Amazon で出品を確認 ↗
+                          </a>
+                        </span>
+                      ) : null}
+                    </td>
+                    <td
+                      className="num strong"
+                      style={{ color: profitColor(item.estimatedProfit) }}
+                      title={isEstimate ? estimateTitle : undefined}
+                    >
+                      {item.estimatedProfit == null ? "未算出" : yen(item.estimatedProfit)}
+                    </td>
+                    <td className="num">{item.roi == null ? "未算出" : `${(item.roi * 100).toFixed(1)}%`}</td>
+                    <td>
+                      <span className={`grade ${gradeClass(item.judgement)}`} title={gradeMeaning[item.judgement]}>
+                        {item.judgement}
+                      </span>
+                      {isEstimate ? (
+                        <span className="cell-sub" style={{ display: "block", marginTop: 2 }} title={estimateTitle}>
+                          (推定)
+                        </span>
+                      ) : null}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -152,4 +186,8 @@ function crossPlatformHref(item: OpportunityRow) {
   return item.productId
     ? `/cross-platform?productId=${encodeURIComponent(item.productId)}`
     : `/cross-platform?product=${encodeURIComponent(item.product)}`;
+}
+
+function amazonSearchUrl(title: string) {
+  return `https://www.amazon.co.jp/s?k=${encodeURIComponent(title)}`;
 }

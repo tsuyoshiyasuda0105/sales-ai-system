@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { estimateSourcingProfit } from "@/lib/sales/profit";
 
 export type ComparisonRole = "buy" | "sell";
 
@@ -16,6 +17,14 @@ export type ComparisonRow = {
   listingCount: number | null;
 };
 
+export type AmazonEstimate = {
+  expectedSellPrice: number;
+  estimatedProfit: number;
+  breakEvenPrice: number;
+  roi: number;
+  judgement: "A" | "B" | "C" | "NG";
+};
+
 export type ProductComparison = {
   productId: string;
   title: string;
@@ -24,6 +33,7 @@ export type ProductComparison = {
   cheapestBuy: number | null;
   bestSell: number | null;
   estimatedSpread: number | null;
+  amazonEstimate: AmazonEstimate | null;
 };
 
 export type ComparableProduct = {
@@ -134,6 +144,29 @@ export async function getProductComparison(
   const cheapestBuy = buyRows.length > 0 ? Math.min(...buyRows.map((row) => row.effectiveCost)) : null;
   const bestSell = sellRows.length > 0 ? Math.min(...sellRows.map((row) => row.price)) : null;
 
+  let amazonEstimate: AmazonEstimate | null = null;
+
+  if (cheapestBuy != null) {
+    const cheapestBuyRow = buyRows.find((row) => row.effectiveCost === cheapestBuy);
+
+    if (cheapestBuyRow) {
+      const estimate = estimateSourcingProfit({
+        sourcePrice: cheapestBuyRow.price,
+        sourceShipping: cheapestBuyRow.shipping,
+        sourcePointValue: cheapestBuyRow.pointValue,
+        targetChannel: "amazon_jp"
+      });
+
+      amazonEstimate = {
+        expectedSellPrice: estimate.expectedSellPrice,
+        estimatedProfit: estimate.profit,
+        breakEvenPrice: estimate.breakEvenPrice,
+        roi: estimate.roi,
+        judgement: estimate.judgement.toUpperCase() as "A" | "B" | "C" | "NG"
+      };
+    }
+  }
+
   return {
     productId: product.id,
     title: product.title,
@@ -141,7 +174,8 @@ export async function getProductComparison(
     rows,
     cheapestBuy,
     bestSell,
-    estimatedSpread: cheapestBuy != null && bestSell != null ? bestSell - cheapestBuy : null
+    estimatedSpread: cheapestBuy != null && bestSell != null ? bestSell - cheapestBuy : null,
+    amazonEstimate
   };
 }
 

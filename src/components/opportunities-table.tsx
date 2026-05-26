@@ -398,6 +398,15 @@ export function OpportunitiesTable({
                     >
                       {item.effJudgement}
                     </span>
+                    {item.priceBasis !== "real" ? (
+                      <span
+                        className="cell-sub"
+                        style={{ display: "block", marginTop: 2 }}
+                        title="販売想定価格が推定値のため、判定も暫定です。実売価格を更新するか他販路を確認してください。"
+                      >
+                        (推定)
+                      </span>
+                    ) : null}
                   </td>
                   <td>
                     <Link className="cell-link" href={crossPlatformHref(item)}>
@@ -409,6 +418,18 @@ export function OpportunitiesTable({
                   </td>
                   <td>
                     {item.buyChannel} <span className="muted">→</span> {item.sellChannel}
+                    {item.sellChannel === "Amazon JP" ? (
+                      <span className="cell-sub">
+                        <a
+                          className="sell-link"
+                          href={amazonSearchUrl(item.product)}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Amazon で出品を確認 ↗
+                        </a>
+                      </span>
+                    ) : null}
                   </td>
                   <td className="num">
                     {formatYen(item.buyPrice)}
@@ -555,6 +576,10 @@ function crossPlatformHref(item: { productId: string | null; product: string }) 
   return item.productId
     ? `/cross-platform?productId=${encodeURIComponent(item.productId)}`
     : `/cross-platform?product=${encodeURIComponent(item.product)}`;
+}
+
+function amazonSearchUrl(title: string) {
+  return `https://www.amazon.co.jp/s?k=${encodeURIComponent(title)}`;
 }
 
 function csvCell(value: string | number) {
