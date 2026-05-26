@@ -1396,6 +1396,21 @@ p {
   text-decoration: underline;
 }
 
+.amount-link {
+  color: inherit;
+  font: inherit;
+  border-bottom: 1px dashed var(--c-border-strong);
+  padding-bottom: 1px;
+  transition: color 120ms, border-color 120ms;
+}
+
+.amount-link:hover,
+.amount-link:focus-visible {
+  color: var(--c-primary);
+  border-bottom-color: var(--c-primary);
+  outline: none;
+}
+
 .refresh-status {
   margin-bottom: var(--sp-4);
 }

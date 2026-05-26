@@ -59,6 +59,11 @@ function Comparison({
 }) {
   const { rows, cheapestBuy, bestSell, estimatedSpread } = comparison;
   const hasSell = rows.some((row) => row.role === "sell");
+  const cheapestBuyRow =
+    cheapestBuy != null ? rows.find((row) => row.role === "buy" && row.effectiveCost === cheapestBuy) : undefined;
+  const bestSellRow =
+    bestSell != null ? rows.find((row) => row.role === "sell" && row.price === bestSell) : undefined;
+  const amazonHref = amazonSearchUrl(comparison.title);
 
   return (
     <>
@@ -75,12 +80,42 @@ function Comparison({
         <div className="row" style={{ gap: "var(--sp-6)" }}>
           <div>
             <span className="muted tiny">仕入れ最安(実質)</span>
-            <div className="strong num">{cheapestBuy == null ? "未取得" : yen(cheapestBuy)}</div>
+            <div className="strong num">
+              {cheapestBuy == null ? (
+                "未取得"
+              ) : cheapestBuyRow?.sourceUrl ? (
+                <a
+                  className="amount-link"
+                  href={cheapestBuyRow.sourceUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  title="楽天の商品ページを開く"
+                >
+                  {yen(cheapestBuy)}
+                </a>
+              ) : (
+                yen(cheapestBuy)
+              )}
+            </div>
           </div>
           <div>
             <span className="muted tiny">Yahoo市場最安(競合の床)</span>
             <div className="strong num">
-              {bestSell == null ? "未取得" : yen(bestSell)}
+              {bestSell == null ? (
+                "未取得"
+              ) : bestSellRow?.sourceUrl ? (
+                <a
+                  className="amount-link"
+                  href={bestSellRow.sourceUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  title="Yahoo!ショッピングの該当出品を開く"
+                >
+                  {yen(bestSell)}
+                </a>
+              ) : (
+                yen(bestSell)
+              )}
               {bestSell != null ? (
                 <span className="price-basis real" style={{ marginLeft: 6 }} title="Yahoo!ショッピングAPIから取得した実際の出品の最安値です。">
                   実売
@@ -99,7 +134,15 @@ function Comparison({
               <div>
                 <span className="muted tiny">Amazon想定売値</span>
                 <div className="strong num">
-                  {yen(comparison.amazonEstimate.expectedSellPrice)}
+                  <a
+                    className="amount-link"
+                    href={amazonHref}
+                    target="_blank"
+                    rel="noreferrer"
+                    title="Amazon JP で商品名検索を開く"
+                  >
+                    {yen(comparison.amazonEstimate.expectedSellPrice)}
+                  </a>
                   <span
                     className="price-basis estimate"
                     style={{ marginLeft: 6 }}
