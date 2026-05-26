@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { isFurusatoNozei } from "@/lib/sales/jan";
+import { extractModelNumbers, isFurusatoNozei } from "@/lib/sales/jan";
 
 export const DEMO_ORGANIZATION_ID = "00000000-0000-4000-8000-000000000101";
 
@@ -26,6 +26,7 @@ export type OpportunityRow = {
   priceBasis: "real" | "estimate";
   sellListingCount: number | null;
   sellUrl?: string | null;
+  variantCount?: number;
   createdAt: string;
 };
 
@@ -185,8 +186,9 @@ export async function listOpportunityRows(organizationId: string): Promise<Oppor
     } satisfies OpportunityRow;
   });
 
-  return [...crossChannelRows, ...candidateRows]
-    .filter((row) => !isFurusatoNozei(row.product))
+  const merged = [...crossChannelRows, ...candidateRows].filter((row) => !isFurusatoNozei(row.product));
+
+  return dedupeByModelNumber(merged)
     .sort((a, b) => {
       const profitA = a.estimatedProfit ?? Number.NEGATIVE_INFINITY;
       const profitB = b.estimatedProfit ?? Number.NEGATIVE_INFINITY;
@@ -196,6 +198,52 @@ export async function listOpportunityRows(organizationId: string): Promise<Oppor
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     })
     .slice(0, 100);
+}
+
+/**
+ * Collapse rows that share the same model number into a single row (the highest-profit one),
+ * recording how many variants were folded in via variantCount. Rows without a detectable
+ * model number are passed through unchanged.
+ */
+function dedupeByModelNumber(rows: OpportunityRow[]): OpportunityRow[] {
+  const groups = new Map<string, OpportunityRow[]>();
+  const ungrouped: OpportunityRow[] = [];
+
+  for (const row of rows) {
+    const models = extractModelNumbers(row.product);
+
+    if (models.length === 0) {
+      ungrouped.push(row);
+      continue;
+    }
+
+    const key = models[0];
+    const existing = groups.get(key);
+    if (existing) {
+      existing.push(row);
+    } else {
+      groups.set(key, [row]);
+    }
+  }
+
+  const result: OpportunityRow[] = [...ungrouped];
+
+  for (const group of groups.values()) {
+    if (group.length === 1) {
+      result.push(group[0]);
+      continue;
+    }
+
+    const winner = [...group].sort((a, b) => {
+      const ap = a.estimatedProfit ?? Number.NEGATIVE_INFINITY;
+      const bp = b.estimatedProfit ?? Number.NEGATIVE_INFINITY;
+      return bp - ap;
+    })[0];
+
+    result.push({ ...winner, variantCount: group.length });
+  }
+
+  return result;
 }
 
 function decimalToNumber(value: { toNumber?: () => number } | number | null | undefined) {

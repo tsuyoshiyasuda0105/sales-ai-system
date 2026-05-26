@@ -118,6 +118,9 @@ export default async function Home() {
                         {item.product}
                       </Link>
                       <span className="cell-sub">{item.risk}</span>
+                      {item.variantCount && item.variantCount > 1 ? (
+                        <span className="cell-sub muted">同型番 他 {item.variantCount - 1} 件</span>
+                      ) : null}
                     </td>
                     <td>
                       <span>

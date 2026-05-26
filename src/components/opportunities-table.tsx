@@ -415,6 +415,9 @@ export function OpportunitiesTable({
                     <span className="cell-sub">
                       <Icon name="warning" style={{ width: 12, height: 12, verticalAlign: "-2px" }} /> {item.risk}
                     </span>
+                    {item.variantCount && item.variantCount > 1 ? (
+                      <span className="cell-sub muted">同型番 他 {item.variantCount - 1} 件(代表として表示)</span>
+                    ) : null}
                   </td>
                   <td>
                     {item.buyChannel} <span className="muted">→</span> {item.sellChannel}
