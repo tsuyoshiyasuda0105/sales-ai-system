@@ -1,44 +1,45 @@
 import { AppShell } from "@/components/app-shell";
-import { pct } from "@/lib/format";
+import { prisma } from "@/lib/db";
+import { DEMO_ORGANIZATION_ID } from "@/lib/sales/opportunities";
 
-const usage = [
-  { label: "Keepa取得", value: 320, limit: 1000, unit: "件 / 月" },
-  { label: "AI判定", value: 86, limit: 500, unit: "件 / 月" }
-];
+export const dynamic = "force-dynamic";
 
-export default function BillingPage() {
+export default async function BillingPage() {
+  const [productCount, candidateCount, rakutenPriceCount, yahooPriceCount, jobRunCount] = await Promise.all([
+    prisma.products.count({ where: { organization_id: DEMO_ORGANIZATION_ID, deleted_at: null } }),
+    prisma.sourcing_candidates.count({ where: { organization_id: DEMO_ORGANIZATION_ID, deleted_at: null } }),
+    prisma.market_prices.count({
+      where: { organization_id: DEMO_ORGANIZATION_ID, source_channel: "rakuten" }
+    }),
+    prisma.market_prices.count({
+      where: { organization_id: DEMO_ORGANIZATION_ID, source_channel: "yahoo_shopping" }
+    }),
+    prisma.job_runs.count({ where: { organization_id: DEMO_ORGANIZATION_ID, deleted_at: null } })
+  ]);
+
+  const cards: Array<{ label: string; value: number | null; foot: string }> = [
+    { label: "商品(取り込み済み)", value: productCount, foot: "products テーブル" },
+    { label: "仕入れ候補", value: candidateCount, foot: "アクティブ含む全件" },
+    { label: "楽天価格スナップ", value: rakutenPriceCount, foot: "market_prices(rakuten)" },
+    { label: "Yahoo実売取得", value: yahooPriceCount, foot: "market_prices(yahoo_shopping)" },
+    { label: "ジョブ実行履歴", value: jobRunCount, foot: "job_runs" },
+    { label: "プラン", value: null, foot: "MVP / 課金未接続" }
+  ];
+
   return (
     <AppShell
       active="利用量/課金"
       title="利用量 / 課金"
-      subtitle="Keepa・AI・API取得回数をテナント単位で管理します。"
+      subtitle="API取得・候補生成の利用状況をテナント単位で把握します。"
     >
       <section className="grid columns-3">
-        {usage.map((item) => {
-          const ratio = item.value / item.limit;
-          const grade = ratio >= 0.9 ? "grade-ng" : ratio >= 0.7 ? "grade-b" : "grade-a";
-          return (
-            <div className="card" key={item.label}>
-              <p className="card-title">{item.label}</p>
-              <div className="metric-row">
-                <p className="metric">{item.value.toLocaleString("ja-JP")}</p>
-                <span className="muted tiny">/ {item.limit.toLocaleString("ja-JP")}</span>
-              </div>
-              <div className={`scorebar ${grade}`}>
-                <span style={{ width: `${Math.min(ratio * 100, 100)}%` }} />
-              </div>
-              <p className="metric-foot">
-                {pct(ratio, 0)} 使用 · {item.unit}
-              </p>
-            </div>
-          );
-        })}
-
-        <div className="card">
-          <p className="card-title">プラン</p>
-          <p className="metric">MVP</p>
-          <p className="metric-foot">課金未接続(無料トライアル運用)</p>
-        </div>
+        {cards.map((item) => (
+          <div className="card" key={item.label}>
+            <p className="card-title">{item.label}</p>
+            <p className="metric">{item.value == null ? "MVP" : item.value.toLocaleString("ja-JP")}</p>
+            <p className="metric-foot">{item.foot}</p>
+          </div>
+        ))}
       </section>
     </AppShell>
   );
