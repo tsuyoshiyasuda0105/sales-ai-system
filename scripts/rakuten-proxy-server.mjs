@@ -41,6 +41,31 @@ const OPERATIONS = {
 };
 
 const server = http.createServer(async (request, response) => {
+  const started = Date.now();
+  const forwarded = request.headers["x-forwarded-for"];
+  const ip =
+    (typeof forwarded === "string" ? forwarded.split(",")[0].trim() : null) ||
+    request.socket.remoteAddress;
+  const ctx = { operation: null, auth: null };
+
+  response.on("finish", () => {
+    try {
+      console.log(
+        JSON.stringify({
+          ts: new Date().toISOString(),
+          svc: "rakuten-proxy",
+          ip,
+          method: request.method,
+          url: request.url,
+          status: response.statusCode,
+          ms: Date.now() - started,
+          op: ctx.operation,
+          auth: ctx.auth
+        })
+      );
+    } catch {}
+  });
+
   try {
     if (request.method === "GET" && request.url === "/health") {
       return sendJson(response, 200, { ok: true, service: "rakuten-proxy" });
@@ -50,8 +75,13 @@ const server = http.createServer(async (request, response) => {
       return sendJson(response, 405, { ok: false, error: { code: "method_not_allowed", message: "Use POST." } });
     }
 
-    if (PROXY_API_KEY && request.headers["x-proxy-api-key"] !== PROXY_API_KEY) {
-      return sendJson(response, 401, { ok: false, error: { code: "unauthorized", message: "Invalid proxy API key." } });
+    if (PROXY_API_KEY) {
+      const provided = request.headers["x-proxy-api-key"];
+      if (provided !== PROXY_API_KEY) {
+        ctx.auth = provided ? "wrong" : "missing";
+        return sendJson(response, 401, { ok: false, error: { code: "unauthorized", message: "Invalid proxy API key." } });
+      }
+      ctx.auth = "ok";
     }
 
     if (!APPLICATION_ID) {
@@ -65,6 +95,7 @@ const server = http.createServer(async (request, response) => {
     }
 
     const body = await readJsonBody(request);
+    ctx.operation = typeof body?.operation === "string" ? body.operation : null;
     const operation = OPERATIONS[body.operation];
 
     if (!operation) {
@@ -104,6 +135,16 @@ const server = http.createServer(async (request, response) => {
     });
     response.end(text);
   } catch (error) {
+    console.error(
+      JSON.stringify({
+        ts: new Date().toISOString(),
+        svc: "rakuten-proxy",
+        level: "error",
+        ip,
+        msg: error instanceof Error ? error.message : "Unknown proxy error.",
+        stack: error instanceof Error ? error.stack : undefined
+      })
+    );
     sendJson(response, 500, {
       ok: false,
       error: {
@@ -115,7 +156,14 @@ const server = http.createServer(async (request, response) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`Rakuten proxy listening on :${PORT}`);
+  console.log(
+    JSON.stringify({
+      ts: new Date().toISOString(),
+      svc: "rakuten-proxy",
+      level: "info",
+      msg: `listening on :${PORT}`
+    })
+  );
 });
 
 function sanitizeParams(params) {
