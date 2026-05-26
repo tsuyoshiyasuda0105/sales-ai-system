@@ -20,6 +20,7 @@ const GENRES = [
 type SourceMode =
   | "rakuten-ranking"
   | "rakuten-ranking-sweep"
+  | "rakuten-discount-sweep"
   | "manual"
   | "bulk"
   | "yahoo-keywords"
@@ -30,6 +31,15 @@ type SweptGenreResult = {
   label: string;
   itemCount: number;
   savedCount: number;
+  error?: string;
+};
+
+type DiscountKeywordResult = {
+  keyword: string;
+  fetched: number;
+  matched: number;
+  saved: number;
+  topPointRate: number | null;
   error?: string;
 };
 
@@ -77,13 +87,20 @@ type ApiResponse = {
     failedCount?: number;
     items?: RakutenItem[];
     results?: KeywordResult[];
-    // sweep-only:
+    // ranking-sweep:
     genresProcessed?: number;
     genresFailed?: number;
     totalItems?: number;
     totalSaved?: number;
     perGenre?: SweptGenreResult[];
     pruned?: { deletedCount: number; keepPerProductChannel: number } | null;
+    // discount-sweep:
+    keywordsProcessed?: number;
+    keywordsFailed?: number;
+    totalFetched?: number;
+    totalMatched?: number;
+    minPointRate?: number;
+    perKeyword?: DiscountKeywordResult[];
   };
   error?: {
     code: string;
@@ -101,6 +118,7 @@ export function RakutenSearchPanel() {
   const [targetChannel, setTargetChannel] = useState("amazon_jp");
   const [sort, setSort] = useState("");
   const [save, setSave] = useState(true);
+  const [minPointRate, setMinPointRate] = useState(5);
   const [isLoading, setIsLoading] = useState(false);
   const [response, setResponse] = useState<ApiResponse | null>(null);
 
@@ -110,6 +128,21 @@ export function RakutenSearchPanel() {
 
   const summary = useMemo(() => {
     if (!response?.data) return null;
+
+    if (mode === "rakuten-discount-sweep") {
+      const processed = response.data.keywordsProcessed ?? 0;
+      const failed = response.data.keywordsFailed ?? 0;
+      const fetched = response.data.totalFetched ?? 0;
+      const matched = response.data.totalMatched ?? 0;
+      const saved = response.data.totalSaved ?? 0;
+      const pruned = response.data.pruned?.deletedCount ?? 0;
+      const threshold = response.data.minPointRate ?? 0;
+      return `${processed}キーワード処理(失敗${failed}) / 取得 ${fetched.toLocaleString(
+        "ja-JP"
+      )}件 / ${threshold}倍以上 ${matched.toLocaleString("ja-JP")}件 / DB保存 ${saved.toLocaleString(
+        "ja-JP"
+      )}件 / 古い価格スナップ ${pruned}件を削除`;
+    }
 
     if (mode === "rakuten-ranking-sweep") {
       const processed = response.data.genresProcessed ?? 0;
@@ -147,7 +180,7 @@ export function RakutenSearchPanel() {
   const savedTotal = useMemo(() => {
     if (!response?.data) return 0;
 
-    if (mode === "rakuten-ranking-sweep") {
+    if (mode === "rakuten-ranking-sweep" || mode === "rakuten-discount-sweep") {
       return response.data.totalSaved ?? 0;
     }
 
@@ -228,7 +261,8 @@ export function RakutenSearchPanel() {
         hits,
         save,
         sort,
-        targetChannel
+        targetChannel,
+        minPointRate
       });
 
       const result = await fetch(endpoint, {
@@ -313,6 +347,16 @@ export function RakutenSearchPanel() {
             <input
               type="radio"
               name="source-mode"
+              value="rakuten-discount-sweep"
+              checked={mode === "rakuten-discount-sweep"}
+              onChange={() => setMode("rakuten-discount-sweep")}
+            />
+            <span>楽天高ポイント品(ポイント倍率で絞り込み)</span>
+          </label>
+          <label className="radio-option">
+            <input
+              type="radio"
+              name="source-mode"
               value="manual"
               checked={mode === "manual"}
               onChange={() => setMode("manual")}
@@ -363,6 +407,21 @@ export function RakutenSearchPanel() {
                 </option>
               ))}
             </select>
+          </label>
+        ) : null}
+
+        {mode === "rakuten-discount-sweep" ? (
+          <label className="field">
+            <span className="field-label">ポイント倍率の最低値</span>
+            <input
+              className="input"
+              type="number"
+              min={1}
+              max={50}
+              value={minPointRate}
+              onChange={(event) => setMinPointRate(Math.max(1, Math.min(50, Number(event.target.value) || 1)))}
+            />
+            <span className="field-help">{minPointRate}倍以上の商品だけを候補入りさせます。</span>
           </label>
         ) : null}
 
@@ -500,6 +559,8 @@ export function RakutenSearchPanel() {
 
           {response.data.perGenre ? <GenreSweepSummary results={response.data.perGenre} /> : null}
 
+          {response.data.perKeyword ? <DiscountSweepSummary results={response.data.perKeyword} /> : null}
+
           {response.data.items && response.data.items.length > 0 ? (
             <div className="table-wrap rakuten-table">
               <table className="table">
@@ -550,6 +611,43 @@ export function RakutenSearchPanel() {
         </div>
       ) : null}
     </section>
+  );
+}
+
+function DiscountSweepSummary({ results }: { results: DiscountKeywordResult[] }) {
+  return (
+    <div className="table-wrap rakuten-table">
+      <table className="table">
+        <thead>
+          <tr>
+            <th>キーワード</th>
+            <th className="num">取得</th>
+            <th className="num">最大倍率</th>
+            <th className="num">条件一致</th>
+            <th className="num">保存</th>
+            <th>状態</th>
+          </tr>
+        </thead>
+        <tbody>
+          {results.map((row) => (
+            <tr key={row.keyword}>
+              <td className="cell-main">{row.keyword}</td>
+              <td className="num">{row.fetched}</td>
+              <td className="num">{row.topPointRate != null ? `${row.topPointRate}倍` : "—"}</td>
+              <td className="num">{row.matched}</td>
+              <td className="num">{row.saved}</td>
+              <td>
+                {row.error ? (
+                  <span className="badge risk">{row.error}</span>
+                ) : (
+                  <span className="badge good">成功</span>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -611,6 +709,10 @@ function KeywordSummary({ results }: { results: KeywordResult[] }) {
 }
 
 function endpointForMode(mode: SourceMode) {
+  if (mode === "rakuten-discount-sweep") {
+    return `/api/v1/organizations/${DEMO_ORGANIZATION_ID}/rakuten/discount-sweep`;
+  }
+
   if (mode === "rakuten-ranking-sweep") {
     return `/api/v1/organizations/${DEMO_ORGANIZATION_ID}/rakuten/ranking-sweep`;
   }
@@ -636,8 +738,21 @@ function requestBodyForMode(
     save: boolean;
     sort: string;
     targetChannel: string;
+    minPointRate: number;
   }
 ) {
+  if (mode === "rakuten-discount-sweep") {
+    return {
+      hits: values.hits,
+      limit: 4,
+      minPointRate: values.minPointRate,
+      save: values.save,
+      targetChannel: values.targetChannel,
+      discoveredByUserId: DEMO_USER_ID,
+      prune: true
+    };
+  }
+
   if (mode === "rakuten-ranking-sweep") {
     return {
       hits: values.hits,
@@ -683,6 +798,7 @@ function requestBodyForMode(
 
 function buttonLabel(mode: SourceMode, isLoading: boolean) {
   if (isLoading) return "取得中...";
+  if (mode === "rakuten-discount-sweep") return "高ポイント品を取得";
   if (mode === "rakuten-ranking-sweep") return "主要ジャンル横断取得";
   if (mode === "rakuten-ranking") return "ランキングから候補取得";
   if (mode === "bulk") return "まとめて候補取得";
