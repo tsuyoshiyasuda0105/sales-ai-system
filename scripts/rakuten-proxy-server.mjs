@@ -75,14 +75,26 @@ const server = http.createServer(async (request, response) => {
       return sendJson(response, 405, { ok: false, error: { code: "method_not_allowed", message: "Use POST." } });
     }
 
-    if (PROXY_API_KEY) {
-      const provided = request.headers["x-proxy-api-key"];
-      if (provided !== PROXY_API_KEY) {
-        ctx.auth = provided ? "wrong" : "missing";
-        return sendJson(response, 401, { ok: false, error: { code: "unauthorized", message: "Invalid proxy API key." } });
-      }
-      ctx.auth = "ok";
+    // API key is REQUIRED — refuse to serve if the proxy was started without RAKUTEN_PROXY_API_KEY
+    // (previous "if (PROXY_API_KEY)" branch silently allowed unauthenticated traffic if the env
+    // var was missing, which is a misconfiguration trap).
+    if (!PROXY_API_KEY) {
+      ctx.auth = "server_misconfigured";
+      return sendJson(response, 500, {
+        ok: false,
+        error: {
+          code: "server_misconfigured",
+          message: "RAKUTEN_PROXY_API_KEY is not configured on the proxy server."
+        }
+      });
     }
+
+    const provided = request.headers["x-proxy-api-key"];
+    if (provided !== PROXY_API_KEY) {
+      ctx.auth = provided ? "wrong" : "missing";
+      return sendJson(response, 401, { ok: false, error: { code: "unauthorized", message: "Invalid proxy API key." } });
+    }
+    ctx.auth = "ok";
 
     if (!APPLICATION_ID) {
       return sendJson(response, 500, {
