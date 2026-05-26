@@ -3,6 +3,10 @@
     {
       "path": "/api/v1/cron/rakuten-daily-sweep",
       "schedule": "0 19 * * *"
+    },
+    {
+      "path": "/api/v1/cron/rakuten-discount-sweep",
+      "schedule": "30 19 * * *"
     }
   ]
 }
