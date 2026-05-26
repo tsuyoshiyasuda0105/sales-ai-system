@@ -17,8 +17,10 @@ type RefreshState = {
 };
 
 type JudgementFilter = "all" | "A" | "B" | "C" | "NG";
-type SortKey = "buyPrice" | "expected" | "profit" | "roi";
+type SortKey = "buyPrice" | "expected" | "profit" | "roi" | "popularity";
 type SortDir = "asc" | "desc";
+
+const POPULAR_THRESHOLD = 50;
 
 type EffectiveRow = OpportunityRow & {
   extraSavings: number;
@@ -56,6 +58,7 @@ export function OpportunitiesTable({
   const [judgement, setJudgement] = useState<JudgementFilter>("all");
   const [profitableOnly, setProfitableOnly] = useState(false);
   const [realOnly, setRealOnly] = useState(false);
+  const [popularOnly, setPopularOnly] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [refreshState, setRefreshState] = useState<RefreshState>({ loading: false });
@@ -147,6 +150,7 @@ export function OpportunitiesTable({
       if (judgement !== "all" && row.effJudgement !== judgement) return false;
       if (profitableOnly && !(row.effProfit != null && row.effProfit > 0)) return false;
       if (realOnly && row.priceBasis !== "real") return false;
+      if (popularOnly && (row.reviewCount == null || row.reviewCount < POPULAR_THRESHOLD)) return false;
       if (q) {
         const haystack = `${row.product} ${row.buyChannel} ${row.sellChannel} ${row.risk}`.toLowerCase();
         if (!haystack.includes(q)) return false;
@@ -167,6 +171,8 @@ export function OpportunitiesTable({
           return row.effProfit;
         case "roi":
           return row.effRoi;
+        case "popularity":
+          return row.reviewCount;
       }
     };
 
@@ -179,9 +185,13 @@ export function OpportunitiesTable({
 
       return sortDir === "asc" ? av - bv : bv - av;
     });
-  }, [computed, query, judgement, profitableOnly, realOnly, sortKey, sortDir]);
+  }, [computed, query, judgement, profitableOnly, realOnly, popularOnly, sortKey, sortDir]);
 
   const realCount = useMemo(() => computed.filter((row) => row.priceBasis === "real").length, [computed]);
+  const popularCount = useMemo(
+    () => computed.filter((row) => row.reviewCount != null && row.reviewCount >= POPULAR_THRESHOLD).length,
+    [computed]
+  );
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -212,6 +222,8 @@ export function OpportunitiesTable({
       "損益分岐",
       "想定利益",
       "ROI",
+      "評価",
+      "レビュー数",
       "状態",
       "リスク",
       "仕入れ元URL"
@@ -235,6 +247,8 @@ export function OpportunitiesTable({
       row.effBreakEven ?? "",
       row.effProfit ?? "",
       row.effRoi == null ? "" : `${(row.effRoi * 100).toFixed(1)}%`,
+      row.reviewRating == null ? "" : row.reviewRating.toFixed(1),
+      row.reviewCount ?? "",
       row.status,
       row.risk,
       row.sourceUrl ?? ""
@@ -304,6 +318,17 @@ export function OpportunitiesTable({
         >
           実売のみ
           <span className="filter-count">{realCount}</span>
+        </button>
+
+        <button
+          type="button"
+          className={`button secondary filter-chip ${popularOnly ? "is-active" : ""}`}
+          aria-pressed={popularOnly}
+          onClick={() => setPopularOnly((value) => !value)}
+          title={`楽天レビュー ${POPULAR_THRESHOLD} 件以上の候補のみ`}
+        >
+          人気のみ
+          <span className="filter-count">{popularCount}</span>
         </button>
 
         <span className="spacer" />
@@ -384,6 +409,7 @@ export function OpportunitiesTable({
                 <SortHeader label="販売想定" col="expected" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                 <SortHeader label="利益" col="profit" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                 <SortHeader label="ROI" col="roi" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                <SortHeader label="人気度" col="popularity" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                 <th>状態</th>
                 <th></th>
               </tr>
@@ -479,6 +505,18 @@ export function OpportunitiesTable({
                     {formatNullableYen(item.effProfit)}
                   </td>
                   <td className="num">{formatNullablePct(item.effRoi)}</td>
+                  <td className="num">
+                    {item.reviewCount == null ? (
+                      "—"
+                    ) : (
+                      <>
+                        {item.reviewRating != null ? (
+                          <span className="strong">★{item.reviewRating.toFixed(1)}</span>
+                        ) : null}
+                        <span className="cell-sub">{item.reviewCount.toLocaleString("ja-JP")} レビュー</span>
+                      </>
+                    )}
+                  </td>
                   <td>
                     <span className="badge neutral">{item.status}</span>
                   </td>

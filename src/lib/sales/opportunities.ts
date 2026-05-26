@@ -27,6 +27,8 @@ export type OpportunityRow = {
   sellListingCount: number | null;
   sellUrl?: string | null;
   variantCount?: number;
+  reviewCount: number | null;
+  reviewRating: number | null;
   createdAt: string;
 };
 
@@ -65,10 +67,16 @@ export async function listOpportunityRows(organizationId: string): Promise<Oppor
           title: true,
           image_url: true,
           market_prices: {
-            where: { source_channel: "yahoo_shopping" },
             orderBy: { fetched_at: "desc" },
-            take: 1,
-            select: { price_amount: true, source_url: true, raw_payload: true }
+            take: 6,
+            select: {
+              source_channel: true,
+              price_amount: true,
+              source_url: true,
+              raw_payload: true,
+              review_count: true,
+              review_rating: true
+            }
           }
         }
       }
@@ -132,6 +140,8 @@ export async function listOpportunityRows(organizationId: string): Promise<Oppor
       priceBasis: "estimate",
       sellListingCount: null,
       sellUrl: null,
+      reviewCount: null,
+      reviewRating: null,
       createdAt: opportunity.created_at.toISOString()
     } satisfies OpportunityRow;
   });
@@ -147,11 +157,16 @@ export async function listOpportunityRows(organizationId: string): Promise<Oppor
     const breakEvenPrice = decimalToNullableNumber(candidate.break_even_price_amount);
     const product = candidate.products_sourcing_candidates_product_idToproducts;
     const productTitle = product?.title ?? candidate.source_title;
-    const yahooMarketPrice = product?.market_prices?.[0];
+    const allMarketPrices = product?.market_prices ?? [];
+    const yahooMarketPrice = allMarketPrices.find((price) => String(price.source_channel) === "yahoo_shopping");
+    const rakutenMarketPrice = allMarketPrices.find((price) => String(price.source_channel) === "rakuten");
     const yahooMeta = (yahooMarketPrice?.raw_payload ?? null) as
       | { min?: number; max?: number; count?: number }
       | null;
     const isRealPrice = String(candidate.target_channel) === "yahoo_shopping" && Boolean(yahooMarketPrice);
+    const reviewCount = rakutenMarketPrice?.review_count ?? null;
+    const reviewRating =
+      rakutenMarketPrice?.review_rating != null ? Number(rakutenMarketPrice.review_rating) : null;
 
     return {
       id: candidate.id,
@@ -182,6 +197,8 @@ export async function listOpportunityRows(organizationId: string): Promise<Oppor
       priceBasis: isRealPrice ? "real" : "estimate",
       sellListingCount: isRealPrice ? yahooMeta?.count ?? null : null,
       sellUrl: isRealPrice ? yahooMarketPrice?.source_url ?? candidate.target_url : null,
+      reviewCount,
+      reviewRating,
       createdAt: candidate.created_at.toISOString()
     } satisfies OpportunityRow;
   });
