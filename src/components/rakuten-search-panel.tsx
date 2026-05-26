@@ -17,7 +17,21 @@ const GENRES = [
   { label: "スマートフォン", value: "564500" }
 ];
 
-type SourceMode = "rakuten-ranking" | "manual" | "bulk" | "yahoo-keywords" | "google-trends";
+type SourceMode =
+  | "rakuten-ranking"
+  | "rakuten-ranking-sweep"
+  | "manual"
+  | "bulk"
+  | "yahoo-keywords"
+  | "google-trends";
+
+type SweptGenreResult = {
+  genreId: string;
+  label: string;
+  itemCount: number;
+  savedCount: number;
+  error?: string;
+};
 
 type RakutenItem = {
   itemCode: string;
@@ -52,17 +66,24 @@ type ApiResponse = {
     title?: string;
     count?: number;
     page?: number;
-    hits: number;
+    hits?: number;
     pageCount?: number | null;
-    saved: boolean;
+    saved?: boolean;
     savedCount?: number;
     totalReturnedCount?: number;
     totalSavedCount?: number;
     keywordCount?: number;
     succeededCount?: number;
     failedCount?: number;
-    items: RakutenItem[];
+    items?: RakutenItem[];
     results?: KeywordResult[];
+    // sweep-only:
+    genresProcessed?: number;
+    genresFailed?: number;
+    totalItems?: number;
+    totalSaved?: number;
+    perGenre?: SweptGenreResult[];
+    pruned?: { deletedCount: number; keepPerProductChannel: number } | null;
   };
   error?: {
     code: string;
@@ -90,8 +111,19 @@ export function RakutenSearchPanel() {
   const summary = useMemo(() => {
     if (!response?.data) return null;
 
+    if (mode === "rakuten-ranking-sweep") {
+      const processed = response.data.genresProcessed ?? 0;
+      const failed = response.data.genresFailed ?? 0;
+      const items = response.data.totalItems ?? 0;
+      const saved = response.data.totalSaved ?? 0;
+      const pruned = response.data.pruned?.deletedCount ?? 0;
+      return `${processed}ジャンル処理(失敗${failed}) / 取得 ${items.toLocaleString(
+        "ja-JP"
+      )}件 / DB保存 ${saved.toLocaleString("ja-JP")}件 / 古い価格スナップ ${pruned}件を削除`;
+    }
+
     if (mode === "bulk") {
-      const totalReturned = response.data.totalReturnedCount ?? response.data.items.length;
+      const totalReturned = response.data.totalReturnedCount ?? response.data.items?.length ?? 0;
       const totalSaved = response.data.totalSavedCount ?? response.data.savedCount ?? 0;
 
       return `${response.data.keywordCount ?? 0}キーワード / 成功 ${
@@ -108,12 +140,18 @@ export function RakutenSearchPanel() {
     const savedLabel = response.data.saved ? `${response.data.savedCount ?? 0}件をDB保存` : "DB保存なし";
 
     return `${sourceLabel} / ${(response.data.count ?? 0).toLocaleString("ja-JP")}件中 ${
-      response.data.items.length
+      response.data.items?.length ?? 0
     }件表示 / ${savedLabel}`;
   }, [mode, response]);
 
   const savedTotal = useMemo(() => {
-    if (!response?.data?.saved) return 0;
+    if (!response?.data) return 0;
+
+    if (mode === "rakuten-ranking-sweep") {
+      return response.data.totalSaved ?? 0;
+    }
+
+    if (!response.data.saved) return 0;
 
     if (mode === "bulk") {
       return response.data.totalSavedCount ?? response.data.savedCount ?? 0;
@@ -265,6 +303,16 @@ export function RakutenSearchPanel() {
             <input
               type="radio"
               name="source-mode"
+              value="rakuten-ranking-sweep"
+              checked={mode === "rakuten-ranking-sweep"}
+              onChange={() => setMode("rakuten-ranking-sweep")}
+            />
+            <span>楽天ランキング横断(主要ジャンル)</span>
+          </label>
+          <label className="radio-option">
+            <input
+              type="radio"
+              name="source-mode"
               value="manual"
               checked={mode === "manual"}
               onChange={() => setMode("manual")}
@@ -351,7 +399,15 @@ export function RakutenSearchPanel() {
             className="input"
             type="number"
             min={1}
-            max={mode === "rakuten-ranking" ? 100 : mode === "bulk" ? 10 : 30}
+            max={
+              mode === "rakuten-ranking"
+                ? 100
+                : mode === "rakuten-ranking-sweep"
+                  ? 30
+                  : mode === "bulk"
+                    ? 10
+                    : 30
+            }
             value={hits}
             onChange={(event) => setHits(Number(event.target.value))}
           />
@@ -442,20 +498,23 @@ export function RakutenSearchPanel() {
 
           {response.data.results ? <KeywordSummary results={response.data.results} /> : null}
 
-          <div className="table-wrap rakuten-table">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>商品</th>
-                  <th>店舗</th>
-                  <th className="num">価格</th>
-                  <th className="num">ポイント</th>
-                  <th className="num">レビュー</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {response.data.items.map((item) => (
+          {response.data.perGenre ? <GenreSweepSummary results={response.data.perGenre} /> : null}
+
+          {response.data.items && response.data.items.length > 0 ? (
+            <div className="table-wrap rakuten-table">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>商品</th>
+                    <th>店舗</th>
+                    <th className="num">価格</th>
+                    <th className="num">ポイント</th>
+                    <th className="num">レビュー</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {response.data.items.map((item) => (
                   <tr key={item.itemCode}>
                     <td>
                       <div className="rakuten-product-cell">
@@ -484,12 +543,43 @@ export function RakutenSearchPanel() {
                     </td>
                   </tr>
                 ))}
-              </tbody>
-            </table>
-          </div>
+                </tbody>
+              </table>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </section>
+  );
+}
+
+function GenreSweepSummary({ results }: { results: SweptGenreResult[] }) {
+  return (
+    <div className="table-wrap rakuten-table">
+      <table className="table">
+        <thead>
+          <tr>
+            <th>ジャンル</th>
+            <th className="num">取得</th>
+            <th className="num">保存</th>
+            <th>状態</th>
+          </tr>
+        </thead>
+        <tbody>
+          {results.map((row) => (
+            <tr key={row.genreId}>
+              <td>
+                <span className="cell-main">{row.label}</span>
+                <span className="cell-sub">genreId: {row.genreId}</span>
+              </td>
+              <td className="num">{row.itemCount}</td>
+              <td className="num">{row.savedCount}</td>
+              <td>{row.error ? <span className="badge risk">{row.error}</span> : <span className="badge good">成功</span>}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -521,6 +611,10 @@ function KeywordSummary({ results }: { results: KeywordResult[] }) {
 }
 
 function endpointForMode(mode: SourceMode) {
+  if (mode === "rakuten-ranking-sweep") {
+    return `/api/v1/organizations/${DEMO_ORGANIZATION_ID}/rakuten/ranking-sweep`;
+  }
+
   if (mode === "rakuten-ranking") {
     return `/api/v1/organizations/${DEMO_ORGANIZATION_ID}/rakuten/ranking`;
   }
@@ -544,6 +638,17 @@ function requestBodyForMode(
     targetChannel: string;
   }
 ) {
+  if (mode === "rakuten-ranking-sweep") {
+    return {
+      hits: values.hits,
+      limit: 5,
+      save: values.save,
+      targetChannel: values.targetChannel,
+      discoveredByUserId: DEMO_USER_ID,
+      prune: true
+    };
+  }
+
   if (mode === "rakuten-ranking") {
     return {
       genreId: values.genreId || undefined,
@@ -578,6 +683,7 @@ function requestBodyForMode(
 
 function buttonLabel(mode: SourceMode, isLoading: boolean) {
   if (isLoading) return "取得中...";
+  if (mode === "rakuten-ranking-sweep") return "主要ジャンル横断取得";
   if (mode === "rakuten-ranking") return "ランキングから候補取得";
   if (mode === "bulk") return "まとめて候補取得";
 
