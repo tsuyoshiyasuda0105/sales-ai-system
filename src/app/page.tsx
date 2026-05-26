@@ -3,6 +3,7 @@ import { AppShell } from "@/components/app-shell";
 import { Icon } from "@/components/icons";
 import { yen, gradeClass, gradeMeaning } from "@/lib/format";
 import { DEMO_ORGANIZATION_ID, listOpportunityRows, type OpportunityRow } from "@/lib/sales/opportunities";
+import { amazonSearchUrl } from "@/lib/sales/jan";
 
 export const dynamic = "force-dynamic";
 
@@ -189,8 +190,4 @@ function crossPlatformHref(item: OpportunityRow) {
   return item.productId
     ? `/cross-platform?productId=${encodeURIComponent(item.productId)}`
     : `/cross-platform?product=${encodeURIComponent(item.product)}`;
-}
-
-function amazonSearchUrl(title: string) {
-  return `https://www.amazon.co.jp/s?k=${encodeURIComponent(title)}`;
 }

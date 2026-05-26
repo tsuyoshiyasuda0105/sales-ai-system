@@ -8,6 +8,7 @@ import {
   listComparableProducts,
   type ProductComparison
 } from "@/lib/sales/cross-platform";
+import { amazonSearchUrl } from "@/lib/sales/jan";
 
 export const dynamic = "force-dynamic";
 
@@ -343,6 +344,3 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" });
 }
 
-function amazonSearchUrl(title: string) {
-  return `https://www.amazon.co.jp/s?k=${encodeURIComponent(title)}`;
-}

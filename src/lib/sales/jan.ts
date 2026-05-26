@@ -59,3 +59,54 @@ function looksLikeModel(token: string): boolean {
 function normalizeForMatch(value: string): string {
   return value.toLowerCase().normalize("NFKC").replace(/[^a-z0-9]/g, "");
 }
+
+/**
+ * Like extractModelNumbers but returns the original (case+hyphen preserved) tokens, suitable for
+ * building search queries (e.g. for Amazon JP). Hyphenated tokens preferred, same as the matcher.
+ */
+export function extractModelTokens(title: string): string[] {
+  const tokens = stripNoise(title).split(" ").filter(Boolean);
+  const hyphenated: string[] = [];
+  const plain: string[] = [];
+
+  for (const token of tokens) {
+    if (!looksLikeModel(token)) continue;
+
+    const normalized = normalizeForMatch(token);
+
+    if (token.includes("-") && normalized.length >= 5) {
+      if (!hyphenated.includes(token)) hyphenated.push(token);
+    } else if (normalized.length >= 6) {
+      if (!plain.includes(token)) plain.push(token);
+    }
+  }
+
+  return hyphenated.length > 0 ? hyphenated : plain;
+}
+
+/**
+ * Builds a concise search query suitable for Amazon's site search: prefers "<brand> <model>"
+ * (e.g. "パナソニック EH-NA0K"), falling back to the first few meaningful tokens of the title
+ * when no model number is present. Avoids the noisy long Rakuten SEO titles that otherwise
+ * match unrelated products.
+ */
+export function buildAmazonSearchQuery(title: string): string {
+  const cleanedTokens = stripNoise(title).split(" ").filter(Boolean);
+  const modelTokens = extractModelTokens(title);
+
+  if (modelTokens.length > 0) {
+    const primaryModel = modelTokens[0];
+    const modelIndex = cleanedTokens.indexOf(primaryModel);
+    const brandCandidate = modelIndex > 0 ? cleanedTokens[0] : undefined;
+    const parts = brandCandidate && brandCandidate !== primaryModel ? [brandCandidate, primaryModel] : [primaryModel];
+
+    return parts.join(" ");
+  }
+
+  return cleanedTokens.slice(0, 3).join(" ");
+}
+
+export function amazonSearchUrl(title: string): string {
+  const query = buildAmazonSearchQuery(title);
+  return `https://www.amazon.co.jp/s?k=${encodeURIComponent(query)}`;
+}
