@@ -8,6 +8,8 @@ const envSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
   SALES_API_KEY: z.string().optional(),
   CRON_SECRET: z.string().optional(),
+  SITE_USERNAME: z.string().optional(),
+  SITE_PASSWORD: z.string().optional(),
   REDIS_URL: z.string().default("redis://localhost:6379"),
   OPENAI_API_KEY: z.string().optional(),
   ENCRYPTION_PROVIDER: z
