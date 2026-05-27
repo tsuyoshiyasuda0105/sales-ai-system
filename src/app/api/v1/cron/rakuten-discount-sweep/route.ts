@@ -3,6 +3,7 @@ import { env } from "@/lib/env";
 import { RakutenApiError } from "@/lib/integrations/rakuten";
 import { sweepRakutenDiscounts } from "@/lib/sales/rakuten-discount-sweep";
 import { pruneOldMarketPrices } from "@/lib/sales/market-prices-retention";
+import { notifyError } from "@/lib/notify";
 
 const DEMO_ORGANIZATION_ID = "00000000-0000-4000-8000-000000000101";
 const RETENTION_KEEP = 30;
@@ -45,13 +46,20 @@ export async function GET(request: Request) {
     return ok({ organizationId, saved: true, ...sweep, pruned });
   } catch (error) {
     if (error instanceof RakutenApiError) {
+      await notifyError(error, {
+        source: "cron/rakuten-discount-sweep",
+        extra: { organizationId, code: error.code, status: error.status }
+      });
       return Response.json(
         { ok: false, error: { code: error.code ?? "rakuten_api_error", message: error.message } },
         { status: error.status }
       );
     }
 
-    console.error(error);
+    await notifyError(error, {
+      source: "cron/rakuten-discount-sweep",
+      extra: { organizationId }
+    });
 
     return Response.json(
       { ok: false, error: { code: "internal_server_error", message: "Unexpected server error." } },

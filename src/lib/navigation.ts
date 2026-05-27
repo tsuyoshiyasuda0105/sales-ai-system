@@ -23,6 +23,7 @@ export const navSections: NavSection[] = [
     items: [
       { label: "横断比較", href: "/cross-platform", icon: "compare" },
       { label: "価格差チャンス", href: "/opportunities", icon: "opportunity" },
+      { label: "トレンド", href: "/trending", icon: "spark" },
       { label: "商品/AI判定", href: "/products", icon: "product" }
     ]
   },

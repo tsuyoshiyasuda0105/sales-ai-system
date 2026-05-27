@@ -28,7 +28,13 @@ const envSchema = z.object({
   YAHOO_CLIENT_SECRET: z.string().optional(),
   NETSEA_API_BASE_URL: z.string().url().optional(),
   NETSEA_API_TOKEN: z.string().optional(),
-  AMAZON_SP_API_ENABLED: z.string().default("false")
+  AMAZON_SP_API_ENABLED: z.string().default("false"),
+  // 任意のエラー通知 webhook URL。Slack incoming webhook(`{ text }`)互換。
+  // Discord でも URL 末尾に `/slack` を付ければ同フォーマットで受信できる。
+  // 未設定なら notify は no-op で何もしない。
+  ALERT_WEBHOOK_URL: z.string().url().optional(),
+  // 通知メッセージの先頭につける環境名(複数環境を1つの webhook で受ける時の識別用)。
+  ALERT_ENV_NAME: z.string().optional()
 });
 
 export const env = envSchema.parse(process.env);
