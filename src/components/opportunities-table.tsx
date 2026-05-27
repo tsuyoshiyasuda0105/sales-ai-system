@@ -137,12 +137,33 @@ export function OpportunitiesTable({
     });
   }, [rows, pointRate, couponRate, simActive]);
 
+  // counts are computed over the rows that pass *every other filter* (search, profitableOnly,
+  // realOnly, popularOnly) so each judgement chip shows the realistic remaining count if the
+  // user were to pick that judgement, not the raw whole-table A/B/C/NG distribution.
   const counts = useMemo(() => {
-    const base: Record<JudgementFilter, number> = { all: computed.length, A: 0, B: 0, C: 0, NG: 0 };
-    for (const row of computed) base[row.effJudgement] += 1;
+    const q = query.trim().toLowerCase();
+    const filteredForCounts = computed.filter((row) => {
+      if (profitableOnly && !(row.effProfit != null && row.effProfit > 0)) return false;
+      if (realOnly && row.priceBasis !== "real") return false;
+      if (popularOnly && (row.reviewCount == null || row.reviewCount < POPULAR_THRESHOLD)) return false;
+      if (q) {
+        const haystack = `${row.product} ${row.buyChannel} ${row.sellChannel} ${row.risk}`.toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+      return true;
+    });
+
+    const base: Record<JudgementFilter, number> = {
+      all: filteredForCounts.length,
+      A: 0,
+      B: 0,
+      C: 0,
+      NG: 0
+    };
+    for (const row of filteredForCounts) base[row.effJudgement] += 1;
 
     return base;
-  }, [computed]);
+  }, [computed, query, profitableOnly, realOnly, popularOnly]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -306,6 +327,11 @@ export function OpportunitiesTable({
           className={`button secondary filter-chip ${profitableOnly ? "is-active" : ""}`}
           aria-pressed={profitableOnly}
           onClick={() => setProfitableOnly((value) => !value)}
+          title={
+            simActive
+              ? "シミュレーション値で判定中。本来の利益(還元前)では赤字でも、ここでは黒字として残ります"
+              : "現在の利益(シミュレーションOFF時)で判定"
+          }
         >
           黒字のみ
         </button>
@@ -392,7 +418,9 @@ export function OpportunitiesTable({
         ) : null}
         <span className="sim-note">
           {simActive
-            ? "楽天の実質還元を原価に反映して利益・ROI・判定を再計算中(表示のみ・DBは変更しません)"
+            ? pointRate + couponRate >= 60
+              ? "⚠ 還元合計が高すぎます。実質原価が極端に下がり、ROI/判定が虚像になる可能性。現実的には合計40〜50%が上限です"
+              : "楽天の実質還元を原価に反映して利益・ROI・判定を再計算中(表示のみ・DBは変更しません)"
             : "楽天のSPU/キャンペーン/クーポンの実質還元率を入れると、黒字になる商品が見えます"}
         </span>
       </div>

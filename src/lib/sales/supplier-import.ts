@@ -232,7 +232,25 @@ async function upsertCandidate(
   };
 
   if (existing) {
-    return prisma.sourcing_candidates.update({ where: { id: existing.id }, data });
+    // 🔒 Preserve real-price state when the candidate has already been promoted to
+    // target_channel = yahoo_shopping via a Yahoo refresh. Re-importing the supplier catalog
+    // (NETSEA/CSV) only refreshes the cost side; the Yahoo-derived target is kept.
+    const preserveRealPrice = String(existing.target_channel) === "yahoo_shopping";
+    const updateData = preserveRealPrice
+      ? {
+          product_id: data.product_id,
+          source_url: data.source_url,
+          source_title: data.source_title,
+          source_condition: data.source_condition,
+          source_price_amount: data.source_price_amount,
+          source_shipping_amount: data.source_shipping_amount,
+          source_point_value_amount: data.source_point_value_amount,
+          raw_payload: data.raw_payload,
+          discovered_by_user_id: data.discovered_by_user_id,
+          updated_at: data.updated_at
+        }
+      : data;
+    return prisma.sourcing_candidates.update({ where: { id: existing.id }, data: updateData });
   }
 
   return prisma.sourcing_candidates.create({

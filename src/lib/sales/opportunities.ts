@@ -251,7 +251,14 @@ function dedupeByModelNumber(rows: OpportunityRow[]): OpportunityRow[] {
       continue;
     }
 
+    // Prefer real-price rows over estimates: an estimate-based profit can be artificially higher
+    // (markup ×1.35 over a low Rakuten price), and would otherwise hide the real ground truth.
+    // Within the same priceBasis class, fall back to the highest estimated profit.
     const winner = [...group].sort((a, b) => {
+      const aReal = a.priceBasis === "real" ? 1 : 0;
+      const bReal = b.priceBasis === "real" ? 1 : 0;
+      if (aReal !== bReal) return bReal - aReal;
+
       const ap = a.estimatedProfit ?? Number.NEGATIVE_INFINITY;
       const bp = b.estimatedProfit ?? Number.NEGATIVE_INFINITY;
       return bp - ap;

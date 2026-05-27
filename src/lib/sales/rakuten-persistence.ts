@@ -180,9 +180,30 @@ async function upsertSourcingCandidate(
   };
 
   if (existing) {
+    // 🔒 Preserve real-price state: if this candidate was previously promoted to
+    // target_channel = yahoo_shopping by a Yahoo refresh (i.e. real-priced), do NOT overwrite
+    // the target channel and profit fields back to amazon_jp + ×1.35 markup. Only refresh
+    // the source-side data (latest Rakuten price/shipping/points) and let the next Yahoo
+    // refresh recompute the target side.
+    const existingTargetChannel = String(existing.target_channel);
+    const preserveRealPrice = existingTargetChannel === "yahoo_shopping";
+    const updateData = preserveRealPrice
+      ? {
+          product_id: data.product_id,
+          source_url: data.source_url,
+          source_title: data.source_title,
+          source_condition: data.source_condition,
+          source_price_amount: data.source_price_amount,
+          source_shipping_amount: data.source_shipping_amount,
+          source_point_value_amount: data.source_point_value_amount,
+          raw_payload: data.raw_payload,
+          discovered_by_user_id: data.discovered_by_user_id,
+          updated_at: data.updated_at
+        }
+      : data;
     const candidate = await prisma.sourcing_candidates.update({
       where: { id: existing.id },
-      data
+      data: updateData
     });
 
     await createAiScoreForCandidate(candidate.id, productId, options, estimate);
