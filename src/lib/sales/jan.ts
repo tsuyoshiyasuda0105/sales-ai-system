@@ -42,12 +42,13 @@ export function extractModelNumbers(title: string): string[] {
 }
 
 export function stripNoise(title: string): string {
+  // Strip the brackets themselves but keep their contents — Rakuten SEO titles often put the
+  // brand name inside 【...】 (e.g. 【ケノン 公式】), and dropping the whole block loses it.
+  // Noisy keywords inside the brackets (公式, 新品, 送料無料 …) are still removed by NOISE_WORDS.
   return title
-    .replace(/【[^】]*】/g, " ")
-    .replace(/\[[^\]]*\]/g, " ")
-    .replace(/[（(][^)）]*[)）]/g, " ")
+    .replace(/[【】\[\]（）()]/g, " ")
     .replace(NOISE_WORDS, " ")
-    .replace(/[!！?？|｜/／·・,，、。.　]+/g, " ")
+    .replace(/[!！?？|｜/／·・,，、。.※　]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -91,7 +92,7 @@ export function extractModelTokens(title: string): string[] {
  * match unrelated products.
  */
 export function buildAmazonSearchQuery(title: string): string {
-  const cleanedTokens = stripNoise(title).split(" ").filter(Boolean);
+  const cleanedTokens = stripNoise(title).split(" ").filter(isMeaningfulToken);
   const modelTokens = extractModelTokens(title);
 
   if (modelTokens.length > 0) {
@@ -104,6 +105,12 @@ export function buildAmazonSearchQuery(title: string): string {
   }
 
   return cleanedTokens.slice(0, 3).join(" ");
+}
+
+function isMeaningfulToken(token: string): boolean {
+  // Drop empties, single-char fragments (like the "店" leftover from 公式店 after NOISE_WORDS),
+  // and pure-digit/symbol tokens that arrived from price/date noise (e.g. "5", "27" out of 5/27).
+  return token.length >= 2 && /\p{Letter}/u.test(token);
 }
 
 export function amazonSearchUrl(title: string): string {
