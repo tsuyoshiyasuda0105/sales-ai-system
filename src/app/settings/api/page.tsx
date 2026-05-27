@@ -1,4 +1,5 @@
 import { AppShell } from "@/components/app-shell";
+import { NetseaImportPanel } from "@/components/netsea-import-panel";
 import { RakutenSearchPanel } from "@/components/rakuten-search-panel";
 import { SupplierImportPanel } from "@/components/supplier-import-panel";
 import { apiConnections } from "@/lib/mock-data";
@@ -40,6 +41,10 @@ export default function ApiSettingsPage() {
 
       <div style={{ marginTop: "var(--sp-6)" }}>
         <RakutenSearchPanel />
+      </div>
+
+      <div style={{ marginTop: "var(--sp-6)" }}>
+        <NetseaImportPanel />
       </div>
 
       <div style={{ marginTop: "var(--sp-6)" }}>

@@ -26,6 +26,8 @@ const envSchema = z.object({
   RAKUTEN_PROXY_API_KEY: z.string().optional(),
   YAHOO_CLIENT_ID: z.string().optional(),
   YAHOO_CLIENT_SECRET: z.string().optional(),
+  NETSEA_API_BASE_URL: z.string().url().optional(),
+  NETSEA_API_TOKEN: z.string().optional(),
   AMAZON_SP_API_ENABLED: z.string().default("false")
 });
 
