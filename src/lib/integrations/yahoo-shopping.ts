@@ -148,6 +148,13 @@ function normalizeYahooItem(hit: YahooApiHit): NormalizedYahooItem | null {
     return null;
   }
 
+  // 🔒 Defense-in-depth: even though searchYahooItems already passes condition=new, sample API
+  // responses occasionally include other condition values. Skip anything not explicitly "new"
+  // to keep used/refurb/junk prices out of the "real sell floor" calculation.
+  if (hit.condition && hit.condition !== "new") {
+    return null;
+  }
+
   return {
     name: hit.name,
     price,
