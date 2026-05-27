@@ -10,16 +10,48 @@ type SaveRakutenSearchOptions = {
   discoveredByUserId?: string;
 };
 
+// 🚀 並列チャンク処理: Vercel Hobby の 10秒タイムアウトに対する余裕を作る。
+//   従来は items を for ループで完全直列 (1件 ~ 200-400ms × 30件 = 6-12秒) だったが、
+//   5並列にすれば 1.5-2秒台に収まる。Prisma の connection pool (default 10) を
+//   食い切らないよう CHUNK_SIZE は控えめにしておく。
+const SAVE_CHUNK_SIZE = 5;
+
 export async function saveRakutenSearchResults(
   items: NormalizedRakutenItem[],
   options: SaveRakutenSearchOptions
 ) {
-  const saved = [];
+  // 同一 itemCode が複数回現れると、Promise.all 内で findOrCreate のレースに
+  // 突入して同じ商品の重複行ができてしまう。最初の出現だけ残してdedupe。
+  const seenCodes = new Set<string>();
+  const dedupedItems = items.filter((item) => {
+    if (seenCodes.has(item.itemCode)) return false;
+    seenCodes.add(item.itemCode);
+    return true;
+  });
 
-  for (const item of items) {
-    const product = await findOrCreateProductFromRakutenItem(item, options);
+  const saved: Array<Awaited<ReturnType<typeof processSingleRakutenItem>>> = [];
 
-    const marketPrice = await prisma.market_prices.create({
+  for (let i = 0; i < dedupedItems.length; i += SAVE_CHUNK_SIZE) {
+    const chunk = dedupedItems.slice(i, i + SAVE_CHUNK_SIZE);
+    const chunkResults = await Promise.all(
+      chunk.map((item) => processSingleRakutenItem(item, options))
+    );
+    saved.push(...chunkResults);
+  }
+
+  return saved;
+}
+
+async function processSingleRakutenItem(
+  item: NormalizedRakutenItem,
+  options: SaveRakutenSearchOptions
+) {
+  const product = await findOrCreateProductFromRakutenItem(item, options);
+
+  // market_prices.create と upsertSourcingCandidate は互いに独立 (両方とも product.id しか
+  // 共有しない) ので Promise.all で並列実行できる。
+  const [marketPrice, candidate] = await Promise.all([
+    prisma.market_prices.create({
       data: {
         organization_id: options.organizationId,
         product_id: product.id,
@@ -38,24 +70,21 @@ export async function saveRakutenSearchResults(
         review_rating: item.reviewAverage,
         raw_payload: item.raw as object
       }
-    });
+    }),
+    upsertSourcingCandidate(item, product.id, options)
+  ]);
 
-    const candidate = await upsertSourcingCandidate(item, product.id, options);
-
-    saved.push({
-      productId: product.id,
-      marketPriceId: marketPrice.id,
-      sourcingCandidateId: candidate.id,
-      itemCode: item.itemCode,
-      itemName: item.itemName,
-      itemPrice: item.itemPrice,
-      targetExpectedPrice: decimalToNumber(candidate.target_expected_price_amount),
-      estimatedProfit: decimalToNumber(candidate.estimated_profit_amount),
-      estimatedRoi: decimalToNumber(candidate.estimated_roi)
-    });
-  }
-
-  return saved;
+  return {
+    productId: product.id,
+    marketPriceId: marketPrice.id,
+    sourcingCandidateId: candidate.id,
+    itemCode: item.itemCode,
+    itemName: item.itemName,
+    itemPrice: item.itemPrice,
+    targetExpectedPrice: decimalToNumber(candidate.target_expected_price_amount),
+    estimatedProfit: decimalToNumber(candidate.estimated_profit_amount),
+    estimatedRoi: decimalToNumber(candidate.estimated_roi)
+  };
 }
 
 async function findOrCreateProductFromRakutenItem(

@@ -37,20 +37,41 @@ export async function listProductRows(organizationId: string): Promise<ProductRo
       deleted_at: null
     },
     include: {
+      // 🚀 各ネスト関係に select を入れて、必要なスカラ列だけ取り出す。
+      //   特に market_prices は raw_payload (~1-2KB/row) を含むので、
+      //   take: 4 × 100 商品 = 最大 800KB → 数十KB へ削減できる。
       product_identifiers_product_identifiers_product_idToproducts: {
-        where: {
-          deleted_at: null
-        },
+        where: { deleted_at: null },
         orderBy: [{ is_primary: "desc" }, { created_at: "asc" }],
-        take: 6
+        take: 6,
+        select: {
+          identifier_type: true,
+          identifier_value: true,
+          source_channel: true,
+          is_primary: true
+        }
       },
       ai_scores_ai_scores_product_idToproducts: {
         orderBy: { created_at: "desc" },
-        take: 1
+        take: 1,
+        select: {
+          total_score: true,
+          judgement: true,
+          reason_summary: true,
+          risk_notes: true
+        }
       },
       market_prices: {
         orderBy: { fetched_at: "desc" },
-        take: 4
+        take: 4,
+        select: {
+          source_channel: true,
+          price_amount: true,
+          shipping_amount: true,
+          seller_name: true,
+          fetched_at: true,
+          source_url: true
+        }
       }
     },
     orderBy: { created_at: "desc" },

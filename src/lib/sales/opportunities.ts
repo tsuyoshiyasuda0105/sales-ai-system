@@ -69,11 +69,15 @@ export async function listOpportunityRows(organizationId: string): Promise<Oppor
           market_prices: {
             orderBy: { fetched_at: "desc" },
             take: 6,
+            // 🚀 raw_payload を select から除外: Yahoo の生レスポンス JSON
+            //   (~1-2KB × 6件 × 100候補 = 数百KB) が page props に乗らないようにする。
+            //   Yahoo の min/count はスカラ列 (price_amount / seller_count) で復元可能。
+            //   max は失われるが expectedSellPriceUpper は ±10% フォールバックで足りる。
             select: {
               source_channel: true,
               price_amount: true,
               source_url: true,
-              raw_payload: true,
+              seller_count: true,
               review_count: true,
               review_rating: true
             }
@@ -160,9 +164,10 @@ export async function listOpportunityRows(organizationId: string): Promise<Oppor
     const allMarketPrices = product?.market_prices ?? [];
     const yahooMarketPrice = allMarketPrices.find((price) => String(price.source_channel) === "yahoo_shopping");
     const rakutenMarketPrice = allMarketPrices.find((price) => String(price.source_channel) === "rakuten");
-    const yahooMeta = (yahooMarketPrice?.raw_payload ?? null) as
-      | { min?: number; max?: number; count?: number }
-      | null;
+    // price_amount は persistYahooMarketPrice 側で stats.min を入れている (実質 Yahoo市場最安)。
+    // seller_count は同様に stats.count を保存している。raw_payload に頼らず復元できる。
+    const yahooMin = yahooMarketPrice ? decimalToNumber(yahooMarketPrice.price_amount) : null;
+    const yahooListingCount = yahooMarketPrice?.seller_count ?? null;
     const isRealPrice = String(candidate.target_channel) === "yahoo_shopping" && Boolean(yahooMarketPrice);
     const reviewCount = rakutenMarketPrice?.review_count ?? null;
     const reviewRating =
@@ -179,8 +184,10 @@ export async function listOpportunityRows(organizationId: string): Promise<Oppor
       buyShipping,
       pointValue,
       expectedSellPrice,
-      expectedSellPriceLower: isRealPrice ? yahooMeta?.min ?? sellPriceRange.lower : sellPriceRange.lower,
-      expectedSellPriceUpper: isRealPrice ? yahooMeta?.max ?? sellPriceRange.upper : sellPriceRange.upper,
+      expectedSellPriceLower: isRealPrice ? yahooMin ?? sellPriceRange.lower : sellPriceRange.lower,
+      // Yahoo max は raw_payload からの参照を除いたので ±10% フォールバックを使う。
+      // ユーザー表示上、上限は文脈ヒントでしかなく実害は無い。
+      expectedSellPriceUpper: sellPriceRange.upper,
       breakEvenPrice,
       estimatedProfit,
       roi,
@@ -195,7 +202,7 @@ export async function listOpportunityRows(organizationId: string): Promise<Oppor
       status: statusLabel(String(candidate.status)),
       sourceUrl: candidate.source_url,
       priceBasis: isRealPrice ? "real" : "estimate",
-      sellListingCount: isRealPrice ? yahooMeta?.count ?? null : null,
+      sellListingCount: isRealPrice ? yahooListingCount : null,
       sellUrl: isRealPrice ? yahooMarketPrice?.source_url ?? candidate.target_url : null,
       reviewCount,
       reviewRating,
