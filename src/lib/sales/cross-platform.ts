@@ -115,6 +115,13 @@ export async function getProductComparison(
   for (const marketPrice of product.market_prices) {
     const channel = String(marketPrice.source_channel);
     if (seenChannels.has(channel)) continue;
+
+    // Skip Yahoo!ふるさと納税 rows that were saved before the Yahoo client filter shipped.
+    // Their "price" is a donation amount, not a sell-side market floor.
+    if (channel === "yahoo_shopping" && isStoredYahooFurusato(marketPrice)) {
+      continue;
+    }
+
     seenChannels.add(channel);
 
     const role = roleOf(channel);
@@ -177,6 +184,38 @@ export async function getProductComparison(
     estimatedSpread: cheapestBuy != null && bestSell != null ? bestSell - cheapestBuy : null,
     amazonEstimate
   };
+}
+
+const FURUSATO_URL_PATTERN =
+  /store\.shopping\.yahoo\.co\.jp\/(y-)?furusato|furusato\.|y-furusato|furunavi|furutax/i;
+const FURUSATO_KEYWORD_PATTERN = /ふるさと納税|寄付金額|寄附金額|返礼品|お礼の品|自治体|納税返礼/;
+const MUNICIPALITY_SELLER_PATTERN = /(都|道|府|県).*(市|町|村|区)|^(?:.{1,8})(市|町|村)$/;
+
+function isStoredYahooFurusato(price: {
+  source_url: string | null;
+  seller_name: string | null;
+  raw_payload: unknown;
+}): boolean {
+  if (price.source_url && FURUSATO_URL_PATTERN.test(price.source_url)) return true;
+  if (price.seller_name) {
+    if (FURUSATO_KEYWORD_PATTERN.test(price.seller_name)) return true;
+    if (MUNICIPALITY_SELLER_PATTERN.test(price.seller_name)) return true;
+  }
+
+  if (price.raw_payload && typeof price.raw_payload === "object") {
+    const payload = price.raw_payload as { top?: Array<{ name?: string; url?: string; store?: string }> };
+    const top = payload.top?.[0];
+    if (top) {
+      if (top.url && FURUSATO_URL_PATTERN.test(top.url)) return true;
+      if (top.name && FURUSATO_KEYWORD_PATTERN.test(top.name)) return true;
+      if (top.store) {
+        if (FURUSATO_KEYWORD_PATTERN.test(top.store)) return true;
+        if (MUNICIPALITY_SELLER_PATTERN.test(top.store)) return true;
+      }
+    }
+  }
+
+  return false;
 }
 
 function listingCountFromPayload(payload: unknown): number | null {

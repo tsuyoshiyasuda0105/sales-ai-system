@@ -80,7 +80,12 @@ function Comparison({
         </div>
         <div className="row" style={{ gap: "var(--sp-6)" }}>
           <div>
-            <span className="muted tiny">仕入れ最安(実質)</span>
+            <span
+              className="muted tiny"
+              title="楽天表示価格 + 送料 − ポイント還元(基本ポイント分のみ。SPU/キャンペーン/クーポンは画面の実質還元シミュレーションで上乗せ判定してください)"
+            >
+              仕入れ最安(実質)
+            </span>
             <div className="strong num">
               {cheapestBuy == null ? (
                 "未取得"
