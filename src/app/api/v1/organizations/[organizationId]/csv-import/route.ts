@@ -135,16 +135,36 @@ function trimString(value: unknown): string | undefined {
 }
 
 function parseMoney(value: unknown): number | undefined {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value !== "string") return undefined;
-  const cleaned = value.replace(/[¥,円\s]/g, "");
-  const parsed = Number.parseFloat(cleaned);
-  return Number.isFinite(parsed) ? parsed : undefined;
+  let parsed: number;
+  if (typeof value === "number" && Number.isFinite(value)) {
+    parsed = value;
+  } else if (typeof value === "string") {
+    const cleaned = value.replace(/[¥,円\s]/g, "");
+    parsed = Number.parseFloat(cleaned);
+  } else {
+    return undefined;
+  }
+
+  if (!Number.isFinite(parsed)) return undefined;
+  // Reject negative or NaN values — money cannot be < 0 in this context.
+  if (parsed < 0) return undefined;
+
+  return parsed;
 }
 
 function parseInt32(value: unknown): number | undefined {
-  if (typeof value === "number" && Number.isFinite(value)) return Math.trunc(value);
-  if (typeof value !== "string") return undefined;
-  const parsed = Number.parseInt(value.replace(/,/g, ""), 10);
-  return Number.isFinite(parsed) ? parsed : undefined;
+  let parsed: number;
+  if (typeof value === "number" && Number.isFinite(value)) {
+    parsed = Math.trunc(value);
+  } else if (typeof value === "string") {
+    parsed = Number.parseInt(value.replace(/,/g, ""), 10);
+  } else {
+    return undefined;
+  }
+
+  if (!Number.isFinite(parsed)) return undefined;
+  // Reject negative stock quantities.
+  if (parsed < 0) return undefined;
+
+  return parsed;
 }

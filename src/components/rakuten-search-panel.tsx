@@ -470,6 +470,17 @@ export function RakutenSearchPanel() {
             value={hits}
             onChange={(event) => setHits(Number(event.target.value))}
           />
+          <span className="field-help">
+            {mode === "rakuten-ranking"
+              ? "ランキング: 1〜100件"
+              : mode === "rakuten-ranking-sweep"
+                ? "横断: 各ジャンル最大30件 × 5ジャンル"
+                : mode === "rakuten-discount-sweep"
+                  ? "高ポイント: 各キーワード最大30件 × 4キーワード"
+                  : mode === "bulk"
+                    ? "複数キーワード: 1キーワードあたり1〜10件 × 最大20キーワード"
+                    : "単一キーワード: 1〜30件"}
+          </span>
         </label>
 
         <label className="field">

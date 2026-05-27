@@ -65,6 +65,20 @@ export function NetseaImportPanel() {
       return;
     }
 
+    // Validate price range ordering — silently swapping would surprise the user, so reject instead.
+    const fromNum = priceFrom.trim() ? Number(priceFrom) : null;
+    const toNum = priceTo.trim() ? Number(priceTo) : null;
+    if (fromNum != null && toNum != null && fromNum > toNum) {
+      setResponse({
+        ok: false,
+        error: {
+          code: "invalid_price_range",
+          message: `卸価格の下限(${fromNum})が上限(${toNum})より大きいです。値を入れ替えてください。`
+        }
+      });
+      return;
+    }
+
     sessionStorage.setItem(SESSION_API_KEY, trimmedKey);
     setIsLoading(true);
 
