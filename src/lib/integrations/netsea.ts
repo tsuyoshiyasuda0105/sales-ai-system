@@ -147,19 +147,73 @@ export async function searchNetseaItems(params: NetseaItemSearchParams): Promise
     );
   }
 
-  const payload = (await response.json().catch(() => null)) as
-    | { data?: NetseaItem[]; next_direct_item_id?: string; message?: string; error?: string }
-    | null;
+  // NETSEA は成功時 { data: [...], next_direct_item_id } / 失敗時 message or error フィールド を返す
+  // が、実際には {message: {code:..., detail:...}} のようなネスト形式や {errors:[...]} の配列形式
+  // で返してくるケースが観測されている。任意形を文字列化できるよう柔軟に処理する。
+  const payload = (await response.json().catch(() => null)) as unknown;
 
   if (!response.ok) {
-    const message = payload?.message ?? payload?.error ?? "NETSEA API request failed.";
-    throw new NetseaApiError(String(message), response.status, "netsea_api_error");
+    const message = extractNetseaErrorMessage(payload, response.status);
+    // 生 payload は Vercel ログに残しておく。後で同じエラーを再現するときに役立つ。
+    console.error("[netsea] non-ok response:", { status: response.status, payload });
+    throw new NetseaApiError(message, response.status, "netsea_api_error");
   }
 
+  const data = (payload as { data?: NetseaItem[]; next_direct_item_id?: string } | null) ?? {};
+
   return {
-    data: Array.isArray(payload?.data) ? payload.data : [],
-    nextDirectItemId: payload?.next_direct_item_id
+    data: Array.isArray(data.data) ? data.data : [],
+    nextDirectItemId: data.next_direct_item_id
   };
+}
+
+/**
+ * Pull a human-readable error string out of whatever shape NETSEA returned.
+ * Falls back to a JSON dump of the whole payload so the UI never has to show "[object Object]".
+ */
+function extractNetseaErrorMessage(payload: unknown, httpStatus: number): string {
+  const fallback = `NETSEA API returned HTTP ${httpStatus}.`;
+
+  if (payload == null || typeof payload !== "object") {
+    return fallback;
+  }
+
+  const p = payload as Record<string, unknown>;
+
+  // 1. 直接 string 形式: { message: "..." } または { error: "..." }
+  if (typeof p.message === "string" && p.message.trim()) return `[${httpStatus}] ${p.message.trim()}`;
+  if (typeof p.error === "string" && p.error.trim()) return `[${httpStatus}] ${p.error.trim()}`;
+
+  // 2. オブジェクト形式: { message: { code, detail } } や { error: { ... } }
+  if (p.message && typeof p.message === "object") {
+    return `[${httpStatus}] ${safeJsonStringify(p.message)}`;
+  }
+  if (p.error && typeof p.error === "object") {
+    return `[${httpStatus}] ${safeJsonStringify(p.error)}`;
+  }
+
+  // 3. 配列形式: { errors: [{ message, detail }, ...] }
+  if (Array.isArray(p.errors) && p.errors.length > 0) {
+    const first = p.errors[0];
+    if (typeof first === "string") return `[${httpStatus}] ${first}`;
+    if (first && typeof first === "object") {
+      const obj = first as Record<string, unknown>;
+      if (typeof obj.message === "string") return `[${httpStatus}] ${obj.message}`;
+      return `[${httpStatus}] ${safeJsonStringify(first)}`;
+    }
+  }
+
+  // 4. 最後の手段: payload 全体を一部だけ書き出す
+  return `[${httpStatus}] ${safeJsonStringify(payload)}`;
+}
+
+function safeJsonStringify(value: unknown): string {
+  try {
+    const json = JSON.stringify(value);
+    return json.length > 240 ? `${json.slice(0, 240)}…` : json;
+  } catch {
+    return String(value);
+  }
 }
 
 /** GET /item/stock?direct_item_id=X */

@@ -21,6 +21,21 @@ type NetseaSweepResponse = {
   error?: { code: string; message: string };
 };
 
+// サーバー側が型通り string を返すべきだが、万一オブジェクトが混入しても
+// `[object Object]` を出さないよう保険。JSON 化して読める形にする。
+function formatErrorMessage(value: unknown): string {
+  if (typeof value === "string" && value.trim()) return value;
+  if (value == null) return "(no message)";
+  if (typeof value === "object") {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return String(value);
+    }
+  }
+  return String(value);
+}
+
 export function NetseaImportPanel() {
   const [apiKey, setApiKey] = useState("");
   const [supplierIds, setSupplierIds] = useState("");
@@ -294,7 +309,7 @@ export function NetseaImportPanel() {
                 <div className="alert-body">
                   {response.data.errors
                     .slice(0, 3)
-                    .map((entry) => `p${entry.page}: ${entry.message}`)
+                    .map((entry) => `p${entry.page}: ${formatErrorMessage(entry.message)}`)
                     .join(" / ")}
                 </div>
               </div>
