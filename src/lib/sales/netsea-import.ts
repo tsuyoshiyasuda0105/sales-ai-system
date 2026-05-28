@@ -19,11 +19,11 @@ export type NetseaSweepResult = {
 
 const SWEEP_DELAY_MS = 600;
 const DEFAULT_MAX_PAGES = 3;
-// Vercel Hobby の 10秒上限に対するソフト予算。これを超えそうな場合、
-// 次のページに進むのを諦めてここまでの結果を返す。
-const TOTAL_BUDGET_MS = 8500;
+// Route で maxDuration=60 を明示しているのに対するソフト予算。Vercel に殺される前に
+// クリーンに返せるよう 5秒のヘッドルームを残す。
+const TOTAL_BUDGET_MS = 55000;
 // 次のページを開始する前に確保しておく最低残り時間。fetch + 永続化 + 余裕。
-const MIN_PAGE_BUDGET_MS = 2500;
+const MIN_PAGE_BUDGET_MS = 8000;
 
 export async function sweepNetsea(options: {
   organizationId: string;

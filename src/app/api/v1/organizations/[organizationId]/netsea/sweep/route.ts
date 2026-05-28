@@ -2,6 +2,11 @@ import { badRequest, ok } from "@/lib/api/response";
 import { NetseaApiError } from "@/lib/integrations/netsea";
 import { sweepNetsea } from "@/lib/sales/netsea-import";
 
+// NETSEA は1ページあたり 100 商品 × 数バリエーション = 100-200 件の永続化が走るため、
+// Vercel デフォルトの 10秒では届かない。明示的に 60秒に拡張する
+// (Hobby plan は maxDuration の上限が 60秒)。
+export const maxDuration = 60;
+
 type RouteParams = {
   params: Promise<{ organizationId: string }>;
 };

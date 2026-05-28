@@ -84,6 +84,14 @@ export async function saveSupplierCatalogItems(
     return true;
   });
 
+  // 🚀 Prefetch: 1ページ分の全 identifier と全 candidate をまとめて取得する。
+  //   従来は item ごとに findFirst を 2-3 回投げていて、Vercel→Supabase の往復遅延
+  //   (~150-300ms) × Prisma connection pool (~3-5) の queueing が掛け算で効いて
+  //   1 item ~600ms → 129 items = 60秒+ になっていた。
+  //   prefetch で per-item の read は in-memory lookup になり、writes だけが
+  //   往復する。実測 60秒 → 10-15 秒程度まで縮む見込み。
+  const lookup = await prefetchLookup(deduped, options);
+
   const saved: SupplierImportSavedItem[] = [];
   const itemErrors: SupplierImportItemError[] = [];
   let budgetExhausted = false;
@@ -100,7 +108,7 @@ export async function saveSupplierCatalogItems(
     const chunk = deduped.slice(i, i + SUPPLIER_SAVE_CHUNK_SIZE);
     // allSettled so one item's failure doesn't cancel the others in the chunk
     // AND doesn't cancel subsequent chunks. Items that fail go into itemErrors.
-    const results = await Promise.allSettled(chunk.map((item) => saveSingleSupplierItem(item, options)));
+    const results = await Promise.allSettled(chunk.map((item) => saveSingleSupplierItem(item, options, lookup)));
 
     for (let j = 0; j < results.length; j += 1) {
       const result = results[j];
@@ -119,12 +127,109 @@ export async function saveSupplierCatalogItems(
   return { saved, itemErrors, budgetExhausted };
 }
 
+type ProductRef = { id: string };
+type CandidateRef = Awaited<ReturnType<typeof prisma.sourcing_candidates.findFirst>>;
+
+type PrefetchedLookup = {
+  productByJan: Map<string, ProductRef>;
+  productBySku: Map<string, ProductRef>;
+  candidateByKey: Map<string, NonNullable<CandidateRef>>;
+};
+
+async function prefetchLookup(
+  items: SupplierImportItem[],
+  options: SupplierImportOptions
+): Promise<PrefetchedLookup> {
+  // 全アイテムから JAN / SKU / 予測 sourceProductId を集めて一括で SELECT。
+  const jans = new Set<string>();
+  const skus = new Set<string>();
+  const candidateKeys = new Set<string>();
+
+  for (const item of items) {
+    const jan = normalizeJan(item.jan) ?? extractJanFromTitle(item.title) ?? undefined;
+    if (jan) jans.add(jan);
+    if (item.supplierSku) skus.add(item.supplierSku);
+
+    // 候補キーは upsertCandidate と同じ優先順位で予測。
+    // (sku → jan → url の順。最後の `${supplier}:${productId.slice(0,8)}` は
+    //  productId が無いと作れないので prefetch 対象外。)
+    const candidateKey = item.supplierSku ?? jan ?? item.supplierUrl;
+    if (candidateKey) candidateKeys.add(candidateKey);
+  }
+
+  const productByJan = new Map<string, ProductRef>();
+  const productBySku = new Map<string, ProductRef>();
+  const candidateByKey = new Map<string, NonNullable<CandidateRef>>();
+
+  // 識別子と候補を並列で取りに行く。Map 構築は同期処理なので順序問題なし。
+  const [identifiers, candidates] = await Promise.all([
+    jans.size === 0 && skus.size === 0
+      ? []
+      : prisma.product_identifiers.findMany({
+          where: {
+            organization_id: options.organizationId,
+            deleted_at: null,
+            OR: [
+              ...(jans.size > 0
+                ? [{ identifier_type: "jan" as const, identifier_value: { in: Array.from(jans) } }]
+                : []),
+              ...(skus.size > 0
+                ? [
+                    {
+                      identifier_type: "source_product_id" as const,
+                      identifier_value: { in: Array.from(skus) },
+                      source_channel: "other" as const
+                    }
+                  ]
+                : [])
+            ]
+          },
+          select: {
+            identifier_type: true,
+            identifier_value: true,
+            product_id: true,
+            products_product_identifiers_product_idToproducts: { select: { id: true } }
+          }
+        }),
+    candidateKeys.size === 0
+      ? []
+      : prisma.sourcing_candidates.findMany({
+          where: {
+            organization_id: options.organizationId,
+            source_channel: "other",
+            source_product_id: { in: Array.from(candidateKeys) },
+            status: { in: ["new", "watching", "approved"] },
+            deleted_at: null
+          }
+        })
+  ]);
+
+  for (const id of identifiers) {
+    const product = id.products_product_identifiers_product_idToproducts;
+    if (!product) continue;
+    if (id.identifier_type === "jan") {
+      productByJan.set(id.identifier_value, product);
+    } else if (id.identifier_type === "source_product_id") {
+      productBySku.set(id.identifier_value, product);
+    }
+  }
+
+  for (const candidate of candidates) {
+    if (candidate.source_product_id && !candidateByKey.has(candidate.source_product_id)) {
+      candidateByKey.set(candidate.source_product_id, candidate);
+    }
+  }
+
+  return { productByJan, productBySku, candidateByKey };
+}
+
 async function saveSingleSupplierItem(
   item: SupplierImportItem,
-  options: SupplierImportOptions
+  options: SupplierImportOptions,
+  lookup: PrefetchedLookup
 ): Promise<SupplierImportSavedItem> {
   const jan = normalizeJan(item.jan) ?? extractJanFromTitle(item.title) ?? undefined;
-  const product = await findOrCreateProduct(item, jan, options);
+  const product = await findOrCreateProduct(item, jan, options, lookup);
   const condition = normalizeCondition(item.condition);
 
   // market_prices.create と upsertCandidate は両方とも product.id しか共有しないので
@@ -154,7 +259,7 @@ async function saveSingleSupplierItem(
         }
       }
     }),
-    upsertCandidate(item, product.id, jan, condition, options)
+    upsertCandidate(item, product.id, jan, condition, options, lookup)
   ]);
 
   return {
@@ -172,23 +277,19 @@ async function saveSingleSupplierItem(
 async function findOrCreateProduct(
   item: SupplierImportItem,
   jan: string | undefined,
-  options: SupplierImportOptions
+  options: SupplierImportOptions,
+  lookup: PrefetchedLookup
 ) {
-  // 1. JAN lookup first — most authoritative identifier.
+  // 1. JAN lookup first — most authoritative. In-memory hit if prefetched.
   if (jan) {
-    const found = await lookupProductByIdentifier(options.organizationId, "jan", jan, null);
-    if (found) return found;
+    const cached = lookup.productByJan.get(jan);
+    if (cached) return cached;
   }
 
-  // 2. supplierSku fallback.
+  // 2. supplierSku fallback. In-memory hit if prefetched.
   if (item.supplierSku) {
-    const found = await lookupProductByIdentifier(
-      options.organizationId,
-      "source_product_id",
-      item.supplierSku,
-      "other"
-    );
-    if (found) return found;
+    const cached = lookup.productBySku.get(item.supplierSku);
+    if (cached) return cached;
   }
 
   // 3. Create — handle P2002 race condition gracefully.
@@ -196,7 +297,7 @@ async function findOrCreateProduct(
   // try to create. Postgres unique constraint catches the second; on P2002 we
   // re-lookup by the colliding identifier and return that product instead.
   try {
-    return await prisma.products.create({
+    const created = await prisma.products.create({
       data: {
         organization_id: options.organizationId,
         title: item.title,
@@ -241,14 +342,25 @@ async function findOrCreateProduct(
         }
       }
     });
+    // Update prefetch lookup so sibling items in subsequent chunks (or even
+    // the same chunk that started slightly later) reuse this product instead
+    // of retrying create + P2002.
+    if (jan) lookup.productByJan.set(jan, created);
+    if (item.supplierSku) lookup.productBySku.set(item.supplierSku, created);
+    return created;
   } catch (error) {
     if (!isUniqueViolation(error)) throw error;
 
-    // Race: parallel sibling created the same identifier between our findFirst
-    // and our create. Re-lookup; the colliding identifier MUST exist now.
+    // Race: parallel sibling created the same identifier between our miss and
+    // our create. The colliding identifier MUST exist now — go straight to DB
+    // (prefetch is stale from the sibling's perspective).
     if (jan) {
       const found = await lookupProductByIdentifier(options.organizationId, "jan", jan, null);
-      if (found) return found;
+      if (found) {
+        lookup.productByJan.set(jan, found);
+        if (item.supplierSku) lookup.productBySku.set(item.supplierSku, found);
+        return found;
+      }
     }
     if (item.supplierSku) {
       const found = await lookupProductByIdentifier(
@@ -257,7 +369,10 @@ async function findOrCreateProduct(
         item.supplierSku,
         "other"
       );
-      if (found) return found;
+      if (found) {
+        lookup.productBySku.set(item.supplierSku, found);
+        return found;
+      }
     }
     // We hit P2002 but can't find the colliding row — something is genuinely
     // weird (deleted between create and re-lookup?). Surface the original.
@@ -270,7 +385,7 @@ async function lookupProductByIdentifier(
   type: "jan" | "source_product_id",
   value: string,
   sourceChannel: "other" | null
-) {
+): Promise<ProductRef | null> {
   const identifier = await prisma.product_identifiers.findFirst({
     where: {
       organization_id: organizationId,
@@ -279,7 +394,9 @@ async function lookupProductByIdentifier(
       ...(sourceChannel ? { source_channel: sourceChannel } : {}),
       deleted_at: null
     },
-    include: { products_product_identifiers_product_idToproducts: true }
+    select: {
+      products_product_identifiers_product_idToproducts: { select: { id: true } }
+    }
   });
 
   return identifier?.products_product_identifiers_product_idToproducts ?? null;
@@ -290,7 +407,8 @@ async function upsertCandidate(
   productId: string,
   jan: string | undefined,
   condition: "new" | "used" | "unknown",
-  options: SupplierImportOptions
+  options: SupplierImportOptions,
+  lookup: PrefetchedLookup
 ) {
   const targetChannel = options.targetChannel ?? "yahoo_shopping";
   const supplierShipping = item.supplierShippingCost ?? 0;
@@ -303,15 +421,21 @@ async function upsertCandidate(
 
   const sourceProductId = item.supplierSku ?? jan ?? item.supplierUrl ?? `${options.supplier}:${productId.slice(0, 8)}`;
 
-  const existing = await prisma.sourcing_candidates.findFirst({
-    where: {
-      organization_id: options.organizationId,
-      source_channel: "other",
-      source_product_id: sourceProductId,
-      status: { in: ["new", "watching", "approved"] },
-      deleted_at: null
-    }
-  });
+  // In-memory lookup first (prefetched). Fall back to DB only if the candidate
+  // key was the "${supplier}:${productId}" form that we couldn't prefetch.
+  let existing = lookup.candidateByKey.get(sourceProductId);
+  if (!existing) {
+    existing =
+      (await prisma.sourcing_candidates.findFirst({
+        where: {
+          organization_id: options.organizationId,
+          source_channel: "other",
+          source_product_id: sourceProductId,
+          status: { in: ["new", "watching", "approved"] },
+          deleted_at: null
+        }
+      })) ?? undefined;
+  }
 
   const data = {
     product_id: productId,
