@@ -35,34 +35,88 @@ export type SupplierImportSavedItem = {
   estimatedRoi: number | null;
 };
 
+export type SupplierImportItemError = {
+  title: string;
+  message: string;
+};
+
+export type SupplierImportResult = {
+  saved: SupplierImportSavedItem[];
+  itemErrors: SupplierImportItemError[];
+  budgetExhausted: boolean;
+};
+
+/** True if the error is a Prisma unique constraint violation (P2002). */
+function isUniqueViolation(error: unknown): boolean {
+  if (typeof error !== "object" || error == null) return false;
+  const code = (error as { code?: unknown }).code;
+  return typeof code === "string" && code === "P2002";
+}
+
 // 🚀 並列チャンク化: NETSEA 100件×3ページで for ループ直列だと 1件 100-300ms × 300
 //   = 30-90秒で Vercel の 10秒タイムアウトを確実に超えていた。5並列にすれば
 //   Prisma の connection pool (default 10) も食い切らずに 6-10秒で収まる。
 const SUPPLIER_SAVE_CHUNK_SIZE = 5;
 
+/**
+ * Save a batch of supplier-catalog items. Tolerant of per-item failures:
+ * a single race condition or unique-constraint hit no longer wipes out the
+ * whole batch (Promise.allSettled instead of Promise.all). The caller gets
+ * back both successes and per-item errors so the UI can show partial results.
+ *
+ * Honors an optional time budget — if elapsed time exceeds budgetMs, the
+ * function stops processing further chunks and reports budgetExhausted=true,
+ * which is the difference between "all clean" and "more pages remain".
+ */
 export async function saveSupplierCatalogItems(
   items: SupplierImportItem[],
-  options: SupplierImportOptions
-): Promise<SupplierImportSavedItem[]> {
-  // 同じ supplierSku が複数 NETSEA レスポンスに含まれていると、Promise.all で
-  // findOrCreate がレースして同じ商品の重複行ができる。最初の出現だけ残す。
+  options: SupplierImportOptions & { budgetMs?: number }
+): Promise<SupplierImportResult> {
+  // Dedupe by the strongest available identifier. We don't dedupe by JAN here
+  // because the same JAN can legitimately appear with different supplierSkus
+  // (size/color variations of one product); the unique-constraint retry in
+  // findOrCreateProduct handles the resulting JAN collision safely.
   const seen = new Set<string>();
   const deduped = items.filter((item) => {
-    const key = item.supplierSku ?? item.jan ?? item.supplierUrl ?? item.title;
+    const key = item.supplierSku ?? item.supplierUrl ?? `${item.title}::${item.supplierPrice}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
   });
 
   const saved: SupplierImportSavedItem[] = [];
+  const itemErrors: SupplierImportItemError[] = [];
+  let budgetExhausted = false;
+
+  const startedAt = Date.now();
+  const budgetMs = options.budgetMs ?? Infinity;
 
   for (let i = 0; i < deduped.length; i += SUPPLIER_SAVE_CHUNK_SIZE) {
+    if (Date.now() - startedAt > budgetMs) {
+      budgetExhausted = true;
+      break;
+    }
+
     const chunk = deduped.slice(i, i + SUPPLIER_SAVE_CHUNK_SIZE);
-    const chunkResults = await Promise.all(chunk.map((item) => saveSingleSupplierItem(item, options)));
-    saved.push(...chunkResults);
+    // allSettled so one item's failure doesn't cancel the others in the chunk
+    // AND doesn't cancel subsequent chunks. Items that fail go into itemErrors.
+    const results = await Promise.allSettled(chunk.map((item) => saveSingleSupplierItem(item, options)));
+
+    for (let j = 0; j < results.length; j += 1) {
+      const result = results[j];
+      if (result.status === "fulfilled") {
+        saved.push(result.value);
+      } else {
+        const item = chunk[j];
+        itemErrors.push({
+          title: item.title,
+          message: result.reason instanceof Error ? result.reason.message : String(result.reason)
+        });
+      }
+    }
   }
 
-  return saved;
+  return { saved, itemErrors, budgetExhausted };
 }
 
 async function saveSingleSupplierItem(
@@ -120,84 +174,115 @@ async function findOrCreateProduct(
   jan: string | undefined,
   options: SupplierImportOptions
 ) {
+  // 1. JAN lookup first — most authoritative identifier.
   if (jan) {
-    const existing = await prisma.product_identifiers.findFirst({
-      where: {
-        organization_id: options.organizationId,
-        identifier_type: "jan",
-        identifier_value: jan,
-        deleted_at: null
-      },
-      include: { products_product_identifiers_product_idToproducts: true }
-    });
-
-    if (existing?.products_product_identifiers_product_idToproducts) {
-      return existing.products_product_identifiers_product_idToproducts;
-    }
+    const found = await lookupProductByIdentifier(options.organizationId, "jan", jan, null);
+    if (found) return found;
   }
 
+  // 2. supplierSku fallback.
   if (item.supplierSku) {
-    const existing = await prisma.product_identifiers.findFirst({
-      where: {
-        organization_id: options.organizationId,
-        identifier_type: "source_product_id",
-        identifier_value: item.supplierSku,
-        source_channel: "other",
-        deleted_at: null
-      },
-      include: { products_product_identifiers_product_idToproducts: true }
-    });
-
-    if (existing?.products_product_identifiers_product_idToproducts) {
-      return existing.products_product_identifiers_product_idToproducts;
-    }
+    const found = await lookupProductByIdentifier(
+      options.organizationId,
+      "source_product_id",
+      item.supplierSku,
+      "other"
+    );
+    if (found) return found;
   }
 
-  return prisma.products.create({
-    data: {
-      organization_id: options.organizationId,
-      title: item.title,
-      normalized_title: normalizeTitle(item.title),
-      category: `supplier:${options.supplier}`,
-      description: item.notes,
-      image_url: item.imageUrl,
-      status: "active",
-      default_condition: normalizeCondition(item.condition),
-      notes: `Imported from ${options.supplier} CSV`,
-      created_by_user_id: options.discoveredByUserId,
-      updated_by_user_id: options.discoveredByUserId,
-      product_identifiers_product_identifiers_product_idToproducts: {
-        create: [
-          ...(item.supplierSku
-            ? [
-                {
-                  organization_id: options.organizationId,
-                  identifier_type: "source_product_id" as const,
-                  identifier_value: item.supplierSku,
-                  source_channel: "other" as const,
-                  is_primary: true,
-                  confidence_score: 100,
-                  metadata: { supplier: options.supplier, supplierUrl: item.supplierUrl }
-                }
-              ]
-            : []),
-          ...(jan
-            ? [
-                {
-                  organization_id: options.organizationId,
-                  identifier_type: "jan" as const,
-                  identifier_value: jan,
-                  source_channel: "other" as const,
-                  is_primary: !item.supplierSku,
-                  confidence_score: 90,
-                  metadata: { supplier: options.supplier }
-                }
-              ]
-            : [])
-        ]
+  // 3. Create — handle P2002 race condition gracefully.
+  // If two parallel items have the same JAN, both miss the findFirst and both
+  // try to create. Postgres unique constraint catches the second; on P2002 we
+  // re-lookup by the colliding identifier and return that product instead.
+  try {
+    return await prisma.products.create({
+      data: {
+        organization_id: options.organizationId,
+        title: item.title,
+        normalized_title: normalizeTitle(item.title),
+        category: `supplier:${options.supplier}`,
+        description: item.notes,
+        image_url: item.imageUrl,
+        status: "active",
+        default_condition: normalizeCondition(item.condition),
+        notes: `Imported from ${options.supplier} CSV`,
+        created_by_user_id: options.discoveredByUserId,
+        updated_by_user_id: options.discoveredByUserId,
+        product_identifiers_product_identifiers_product_idToproducts: {
+          create: [
+            ...(item.supplierSku
+              ? [
+                  {
+                    organization_id: options.organizationId,
+                    identifier_type: "source_product_id" as const,
+                    identifier_value: item.supplierSku,
+                    source_channel: "other" as const,
+                    is_primary: true,
+                    confidence_score: 100,
+                    metadata: { supplier: options.supplier, supplierUrl: item.supplierUrl }
+                  }
+                ]
+              : []),
+            ...(jan
+              ? [
+                  {
+                    organization_id: options.organizationId,
+                    identifier_type: "jan" as const,
+                    identifier_value: jan,
+                    source_channel: "other" as const,
+                    is_primary: !item.supplierSku,
+                    confidence_score: 90,
+                    metadata: { supplier: options.supplier }
+                  }
+                ]
+              : [])
+          ]
+        }
       }
+    });
+  } catch (error) {
+    if (!isUniqueViolation(error)) throw error;
+
+    // Race: parallel sibling created the same identifier between our findFirst
+    // and our create. Re-lookup; the colliding identifier MUST exist now.
+    if (jan) {
+      const found = await lookupProductByIdentifier(options.organizationId, "jan", jan, null);
+      if (found) return found;
     }
+    if (item.supplierSku) {
+      const found = await lookupProductByIdentifier(
+        options.organizationId,
+        "source_product_id",
+        item.supplierSku,
+        "other"
+      );
+      if (found) return found;
+    }
+    // We hit P2002 but can't find the colliding row — something is genuinely
+    // weird (deleted between create and re-lookup?). Surface the original.
+    throw error;
+  }
+}
+
+async function lookupProductByIdentifier(
+  organizationId: string,
+  type: "jan" | "source_product_id",
+  value: string,
+  sourceChannel: "other" | null
+) {
+  const identifier = await prisma.product_identifiers.findFirst({
+    where: {
+      organization_id: organizationId,
+      identifier_type: type,
+      identifier_value: value,
+      ...(sourceChannel ? { source_channel: sourceChannel } : {}),
+      deleted_at: null
+    },
+    include: { products_product_identifiers_product_idToproducts: true }
   });
+
+  return identifier?.products_product_identifiers_product_idToproducts ?? null;
 }
 
 async function upsertCandidate(

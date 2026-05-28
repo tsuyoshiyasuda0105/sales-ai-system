@@ -97,14 +97,40 @@ export async function sweepNetsea(options: {
     summary.totalSetEntries += supplierItems.length;
 
     if (supplierItems.length > 0) {
+      // 残り予算を秒精度で計算して saveSupplierCatalogItems に渡す。
+      // これにより、1ページ分の保存中に予算が尽きたら途中で打ち切れる
+      // (Vercel 関数全体が殺される前にクリーンに返せる)。
+      const remainingBudget = Math.max(1000, TOTAL_BUDGET_MS - (Date.now() - startedAt) - 1000);
+
       try {
-        const saved = await saveSupplierCatalogItems(supplierItems, {
+        const { saved, itemErrors, budgetExhausted } = await saveSupplierCatalogItems(supplierItems, {
           organizationId: options.organizationId,
           supplier: "netsea",
           targetChannel: options.targetChannel,
-          discoveredByUserId: options.discoveredByUserId
+          discoveredByUserId: options.discoveredByUserId,
+          budgetMs: remainingBudget
         });
         summary.totalSaved += saved.length;
+
+        // Item-level エラー (race / unique 違反 etc.) を先頭 3 件だけ集約。
+        // すべて積むと UI が長くなり、繰り返しの同種エラーは大抵似たメッセージ。
+        if (itemErrors.length > 0) {
+          summary.errors.push({
+            page: page + 1,
+            message: `${itemErrors.length} item(s) failed (showing first 2): ${itemErrors
+              .slice(0, 2)
+              .map((entry) => `"${entry.title.slice(0, 40)}" → ${entry.message.slice(0, 100)}`)
+              .join(" | ")}`
+          });
+        }
+
+        if (budgetExhausted) {
+          summary.errors.push({
+            page: page + 1,
+            message: `Save budget exhausted mid-page; saved ${saved.length}/${supplierItems.length} items.`
+          });
+          break;
+        }
       } catch (error) {
         summary.errors.push({
           page: page + 1,

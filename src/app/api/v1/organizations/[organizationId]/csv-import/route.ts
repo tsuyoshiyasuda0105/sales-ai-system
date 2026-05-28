@@ -53,7 +53,7 @@ export async function POST(request: Request, { params }: RouteParams) {
   }
 
   try {
-    const saved = await saveSupplierCatalogItems(items, {
+    const { saved, itemErrors, budgetExhausted } = await saveSupplierCatalogItems(items, {
       organizationId,
       supplier,
       targetChannel,
@@ -69,7 +69,9 @@ export async function POST(request: Request, { params }: RouteParams) {
       rejectedRows: rejected.length,
       rejectionReasons: rejected.slice(0, 10),
       savedCount: saved.length,
-      savedItems: saved
+      savedItems: saved,
+      itemErrors: itemErrors.slice(0, 10),
+      budgetExhausted
     });
   } catch (error) {
     console.error(error);
