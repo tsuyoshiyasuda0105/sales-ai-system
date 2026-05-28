@@ -421,10 +421,15 @@ async function upsertCandidate(
 
   const sourceProductId = item.supplierSku ?? jan ?? item.supplierUrl ?? `${options.supplier}:${productId.slice(0, 8)}`;
 
-  // In-memory lookup first (prefetched). Fall back to DB only if the candidate
-  // key was the "${supplier}:${productId}" form that we couldn't prefetch.
+  // 🚀 prefetch から in-memory で取り出す。supplierSku/jan/supplierUrl のどれかが
+  //   あればその値が candidateKeys に含まれて prefetch されている。それで miss なら
+  //   「first-time import 確定」なので per-item の findFirst を省略してそのまま
+  //   create に進める(候補1件あたり ~100-300ms の節約)。
+  //   prefetch でカバーできなかった `${supplier}:${productId}` 形式のキーのみ
+  //   フォールバックで findFirst する。
   let existing = lookup.candidateByKey.get(sourceProductId);
-  if (!existing) {
+  const wasPrefetched = Boolean(item.supplierSku || jan || item.supplierUrl);
+  if (!existing && !wasPrefetched) {
     existing =
       (await prisma.sourcing_candidates.findFirst({
         where: {
