@@ -121,8 +121,29 @@ export function NetseaImportPanel() {
         signal: clientAbort.signal
       });
 
-      const payload = (await result.json().catch(() => null)) as NetseaSweepResponse | null;
-      setResponse(payload ?? { ok: false, error: { code: "no_payload", message: "応答が不正でした。" } });
+      // result.json() が throw すると原因(HTMLエラーページ/空ボディ/中断 etc.)が
+      // 見えなくなるので、まず text() で文字列を取り、それから JSON.parse を試す。
+      // 失敗時には HTTP ステータスと body 先頭を見せて何が来たか把握できるようにする。
+      const bodyText = await result.text();
+      let payload: NetseaSweepResponse | null = null;
+      try {
+        payload = bodyText ? (JSON.parse(bodyText) as NetseaSweepResponse) : null;
+      } catch {
+        // not JSON — keep payload null and fall through
+      }
+
+      if (payload) {
+        setResponse(payload);
+      } else {
+        const preview = bodyText.trim().slice(0, 240) || "(empty body)";
+        setResponse({
+          ok: false,
+          error: {
+            code: "invalid_response",
+            message: `応答が不正 (HTTP ${result.status} ${result.statusText || ""}): ${preview}`
+          }
+        });
+      }
     } catch (error) {
       const isAbort = error instanceof Error && error.name === "AbortError";
       setResponse({
