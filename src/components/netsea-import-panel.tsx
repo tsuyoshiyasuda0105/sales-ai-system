@@ -97,6 +97,11 @@ export function NetseaImportPanel() {
     sessionStorage.setItem(SESSION_API_KEY, trimmedKey);
     setIsLoading(true);
 
+    // Vercel 関数の 10 秒上限 + リトライ余地を見て 60 秒で打ち切り。
+    // これが無いと NETSEA が詰まったとき UI が永遠に「取得中…」のまま固まる。
+    const clientAbort = new AbortController();
+    const clientTimeout = setTimeout(() => clientAbort.abort(), 60_000);
+
     try {
       const result = await fetch(`/api/v1/organizations/${DEMO_ORGANIZATION_ID}/netsea/sweep`, {
         method: "POST",
@@ -112,20 +117,27 @@ export function NetseaImportPanel() {
           excludeSoldOut,
           netShopOnly,
           discoveredByUserId: DEMO_USER_ID
-        })
+        }),
+        signal: clientAbort.signal
       });
 
       const payload = (await result.json().catch(() => null)) as NetseaSweepResponse | null;
       setResponse(payload ?? { ok: false, error: { code: "no_payload", message: "応答が不正でした。" } });
     } catch (error) {
+      const isAbort = error instanceof Error && error.name === "AbortError";
       setResponse({
         ok: false,
         error: {
-          code: "request_failed",
-          message: error instanceof Error ? error.message : "リクエスト失敗"
+          code: isAbort ? "client_timeout" : "request_failed",
+          message: isAbort
+            ? "60秒以内に応答がありませんでした。サプライヤーIDを減らすか、最大ページ数を小さくしてください。"
+            : error instanceof Error
+              ? error.message
+              : "リクエスト失敗"
         }
       });
     } finally {
+      clearTimeout(clientTimeout);
       setIsLoading(false);
     }
   }

@@ -35,18 +35,48 @@ export type SupplierImportSavedItem = {
   estimatedRoi: number | null;
 };
 
+// 🚀 並列チャンク化: NETSEA 100件×3ページで for ループ直列だと 1件 100-300ms × 300
+//   = 30-90秒で Vercel の 10秒タイムアウトを確実に超えていた。5並列にすれば
+//   Prisma の connection pool (default 10) も食い切らずに 6-10秒で収まる。
+const SUPPLIER_SAVE_CHUNK_SIZE = 5;
+
 export async function saveSupplierCatalogItems(
   items: SupplierImportItem[],
   options: SupplierImportOptions
 ): Promise<SupplierImportSavedItem[]> {
+  // 同じ supplierSku が複数 NETSEA レスポンスに含まれていると、Promise.all で
+  // findOrCreate がレースして同じ商品の重複行ができる。最初の出現だけ残す。
+  const seen = new Set<string>();
+  const deduped = items.filter((item) => {
+    const key = item.supplierSku ?? item.jan ?? item.supplierUrl ?? item.title;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
   const saved: SupplierImportSavedItem[] = [];
 
-  for (const item of items) {
-    const jan = normalizeJan(item.jan) ?? extractJanFromTitle(item.title) ?? undefined;
-    const product = await findOrCreateProduct(item, jan, options);
-    const condition = normalizeCondition(item.condition);
+  for (let i = 0; i < deduped.length; i += SUPPLIER_SAVE_CHUNK_SIZE) {
+    const chunk = deduped.slice(i, i + SUPPLIER_SAVE_CHUNK_SIZE);
+    const chunkResults = await Promise.all(chunk.map((item) => saveSingleSupplierItem(item, options)));
+    saved.push(...chunkResults);
+  }
 
-    const marketPrice = await prisma.market_prices.create({
+  return saved;
+}
+
+async function saveSingleSupplierItem(
+  item: SupplierImportItem,
+  options: SupplierImportOptions
+): Promise<SupplierImportSavedItem> {
+  const jan = normalizeJan(item.jan) ?? extractJanFromTitle(item.title) ?? undefined;
+  const product = await findOrCreateProduct(item, jan, options);
+  const condition = normalizeCondition(item.condition);
+
+  // market_prices.create と upsertCandidate は両方とも product.id しか共有しないので
+  // 並列化できる。1件あたり ~50-100ms の節約。
+  const [marketPrice, candidate] = await Promise.all([
+    prisma.market_prices.create({
       data: {
         organization_id: options.organizationId,
         product_id: product.id,
@@ -69,23 +99,20 @@ export async function saveSupplierCatalogItems(
           notes: item.notes ?? null
         }
       }
-    });
+    }),
+    upsertCandidate(item, product.id, jan, condition, options)
+  ]);
 
-    const candidate = await upsertCandidate(item, product.id, jan, condition, options);
-
-    saved.push({
-      productId: product.id,
-      marketPriceId: marketPrice.id,
-      sourcingCandidateId: candidate.id,
-      title: item.title,
-      supplierPrice: item.supplierPrice,
-      targetExpectedPrice: decimalToNumber(candidate.target_expected_price_amount),
-      estimatedProfit: decimalToNumber(candidate.estimated_profit_amount),
-      estimatedRoi: decimalToNumber(candidate.estimated_roi)
-    });
-  }
-
-  return saved;
+  return {
+    productId: product.id,
+    marketPriceId: marketPrice.id,
+    sourcingCandidateId: candidate.id,
+    title: item.title,
+    supplierPrice: item.supplierPrice,
+    targetExpectedPrice: decimalToNumber(candidate.target_expected_price_amount),
+    estimatedProfit: decimalToNumber(candidate.estimated_profit_amount),
+    estimatedRoi: decimalToNumber(candidate.estimated_roi)
+  };
 }
 
 async function findOrCreateProduct(

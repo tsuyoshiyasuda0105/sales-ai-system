@@ -19,6 +19,11 @@ export type NetseaSweepResult = {
 
 const SWEEP_DELAY_MS = 600;
 const DEFAULT_MAX_PAGES = 3;
+// Vercel Hobby の 10秒上限に対するソフト予算。これを超えそうな場合、
+// 次のページに進むのを諦めてここまでの結果を返す。
+const TOTAL_BUDGET_MS = 8500;
+// 次のページを開始する前に確保しておく最低残り時間。fetch + 永続化 + 余裕。
+const MIN_PAGE_BUDGET_MS = 2500;
 
 export async function sweepNetsea(options: {
   organizationId: string;
@@ -49,8 +54,20 @@ export async function sweepNetsea(options: {
   };
 
   let nextDirectItemId: string | undefined;
+  const startedAt = Date.now();
 
   for (let page = 0; page < maxPages; page += 1) {
+    // 予算ガード: 残り時間が永続化に必要なだけ無さそうなら、ここまでの結果を返す。
+    // (関数全体が Vercel に殺されて UI が「取得中…」のまま固まるよりはマシ。)
+    const elapsed = Date.now() - startedAt;
+    if (elapsed > TOTAL_BUDGET_MS - MIN_PAGE_BUDGET_MS) {
+      summary.errors.push({
+        page: page + 1,
+        message: `Budget exhausted after ${(elapsed / 1000).toFixed(1)}s; stopped before page ${page + 1}.`
+      });
+      break;
+    }
+
     const params: NetseaItemSearchParams = {
       supplierIds: supplierIdsCsv,
       categoryId: options.categoryId,

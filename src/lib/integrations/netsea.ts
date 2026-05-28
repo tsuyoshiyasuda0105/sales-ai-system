@@ -126,6 +126,12 @@ export async function searchNetseaItems(params: NetseaItemSearchParams): Promise
   if (params.updateDateTo) form.set("update_date_to", params.updateDateTo);
   if (params.nextDirectItemId) form.set("next_direct_item_id", params.nextDirectItemId);
 
+  // Vercel Hobby は 10秒上限。NETSEA が詰まると関数全体が死んで UI が「取得中…」
+  // のまま固まってしまう。8秒で打ち切って失敗を上位に通知する。
+  const NETSEA_REQUEST_TIMEOUT_MS = 8000;
+  const abortController = new AbortController();
+  const timeoutHandle = setTimeout(() => abortController.abort(), NETSEA_REQUEST_TIMEOUT_MS);
+
   let response: Response;
 
   try {
@@ -137,14 +143,24 @@ export async function searchNetseaItems(params: NetseaItemSearchParams): Promise
         "Content-Type": "application/x-www-form-urlencoded"
       },
       body: form.toString(),
-      cache: "no-store"
+      cache: "no-store",
+      signal: abortController.signal
     });
   } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new NetseaApiError(
+        `NETSEA API did not respond within ${NETSEA_REQUEST_TIMEOUT_MS / 1000}s. Try again or reduce supplierIds.`,
+        504,
+        "request_timeout"
+      );
+    }
     throw new NetseaApiError(
       error instanceof Error ? error.message : "NETSEA API request failed.",
       502,
       "request_failed"
     );
+  } finally {
+    clearTimeout(timeoutHandle);
   }
 
   // NETSEA は成功時 { data: [...], next_direct_item_id } / 失敗時 message or error フィールド を返す
