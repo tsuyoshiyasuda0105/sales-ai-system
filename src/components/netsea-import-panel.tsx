@@ -56,6 +56,18 @@ export function NetseaImportPanel() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    await runImport();
+  }
+
+  async function handleContinue() {
+    const continueFrom = response?.data?.nextDirectItemId;
+    if (!continueFrom) return;
+    await runImport(continueFrom);
+  }
+
+  // 共通ロジック: フォーム検証 + fetch + レスポンス処理。
+  // startFromDirectItemId が渡されたら直前のレスポンスから続きを取り込む。
+  async function runImport(startFromDirectItemId?: string) {
     setResponse(null);
 
     const trimmedKey = apiKey.trim();
@@ -116,7 +128,8 @@ export function NetseaImportPanel() {
           targetChannel,
           excludeSoldOut,
           netShopOnly,
-          discoveredByUserId: DEMO_USER_ID
+          discoveredByUserId: DEMO_USER_ID,
+          startFromDirectItemId
         }),
         signal: clientAbort.signal
       });
@@ -331,6 +344,22 @@ export function NetseaImportPanel() {
               <Link className="button" href="/opportunities">
                 価格差チャンスを見る
               </Link>
+            </div>
+          ) : null}
+
+          {response.data.nextDirectItemId ? (
+            <div className="alert info rakuten-cta" role="status">
+              <Icon name="spark" />
+              <div className="cta-text">
+                <div className="alert-title">続きのページがあります</div>
+                <div className="alert-body">
+                  next_direct_item_id={response.data.nextDirectItemId} から再開できます。
+                  約 60 秒の追加リクエストで次の 1 ページ(約 100-130 件)を取り込みます。
+                </div>
+              </div>
+              <button className="button secondary" type="button" onClick={handleContinue} disabled={isLoading}>
+                {isLoading ? "取得中..." : "続きを取り込む"}
+              </button>
             </div>
           ) : null}
 

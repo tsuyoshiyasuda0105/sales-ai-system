@@ -37,6 +37,12 @@ export async function sweepNetsea(options: {
   maxPages?: number;
   targetChannel?: TargetSalesChannel;
   discoveredByUserId?: string;
+  /**
+   * Seed the loop's pagination cursor. When the previous sweep returned a
+   * `nextDirectItemId` because budget ran out, the caller can pass that value
+   * here to resume from the next page instead of starting over from page 1.
+   */
+  startFromDirectItemId?: string;
 }): Promise<NetseaSweepResult> {
   if (!options.supplierIds || options.supplierIds.length === 0) {
     throw new NetseaApiError("At least one supplierId is required.", 400, "missing_supplier_ids");
@@ -53,7 +59,7 @@ export async function sweepNetsea(options: {
     errors: []
   };
 
-  let nextDirectItemId: string | undefined;
+  let nextDirectItemId: string | undefined = options.startFromDirectItemId;
   const startedAt = Date.now();
 
   for (let page = 0; page < maxPages; page += 1) {

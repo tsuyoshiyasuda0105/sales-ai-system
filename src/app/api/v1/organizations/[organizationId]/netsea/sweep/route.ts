@@ -26,6 +26,8 @@ export async function POST(request: Request, { params }: RouteParams) {
     maxPages?: unknown;
     targetChannel?: unknown;
     discoveredByUserId?: unknown;
+    /** Set to a previous response's nextDirectItemId to resume pagination. */
+    startFromDirectItemId?: unknown;
   } | null;
 
   if (!body || typeof body !== "object") {
@@ -52,7 +54,11 @@ export async function POST(request: Request, { params }: RouteParams) {
       maxPages: parseOptionalInt(body.maxPages),
       targetChannel,
       discoveredByUserId:
-        typeof body.discoveredByUserId === "string" ? body.discoveredByUserId : undefined
+        typeof body.discoveredByUserId === "string" ? body.discoveredByUserId : undefined,
+      startFromDirectItemId:
+        typeof body.startFromDirectItemId === "string" && body.startFromDirectItemId.trim()
+          ? body.startFromDirectItemId.trim()
+          : undefined
     });
 
     return ok({ organizationId, saved: true, ...summary });
