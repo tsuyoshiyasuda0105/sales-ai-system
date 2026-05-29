@@ -53,10 +53,10 @@ function isUniqueViolation(error: unknown): boolean {
   return typeof code === "string" && code === "P2002";
 }
 
-// 🚀 並列チャンク化: NETSEA 100件×3ページで for ループ直列だと 1件 100-300ms × 300
-//   = 30-90秒で Vercel の 10秒タイムアウトを確実に超えていた。5並列にすれば
-//   Prisma の connection pool (default 10) も食い切らずに 6-10秒で収まる。
-const SUPPLIER_SAVE_CHUNK_SIZE = 5;
+// 🚀 並列チャンク化: prefetch でクエリが ~5 → ~3 に減ったので、Prisma pool に対する
+//   1チャンクの圧力が下がった分、並列度を 5 → 10 に上げる。これで chunk あたりの
+//   実時間が(直列化ぶんを差し引いて)~30% 縮み、144 items で ~30秒以内を狙う。
+const SUPPLIER_SAVE_CHUNK_SIZE = 10;
 
 /**
  * Save a batch of supplier-catalog items. Tolerant of per-item failures:

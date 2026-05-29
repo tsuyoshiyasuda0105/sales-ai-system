@@ -102,6 +102,18 @@ export async function sweepNetsea(options: {
     const supplierItems = flattenNetseaToSupplierItems(result.data);
     summary.totalSetEntries += supplierItems.length;
 
+    // 🚀 fetch が成功した時点で次ページカーソルを summary に積んでおく。
+    //   こうしておくと、後段の save で budget exhaust して break しても、
+    //   UI 側に nextDirectItemId が残り「続きを取り込む」ボタンが出せる。
+    //   従来は save の後でしか set していなかったため、budget 切れで loop を
+    //   break するとカーソルが伝搬されず、ユーザーが続きを取れなかった。
+    if (result.nextDirectItemId) {
+      summary.nextDirectItemId = result.nextDirectItemId;
+      nextDirectItemId = result.nextDirectItemId;
+    } else {
+      summary.nextDirectItemId = undefined;
+    }
+
     if (supplierItems.length > 0) {
       // 残り予算を秒精度で計算して saveSupplierCatalogItems に渡す。
       // これにより、1ページ分の保存中に予算が尽きたら途中で打ち切れる
@@ -145,13 +157,8 @@ export async function sweepNetsea(options: {
       }
     }
 
-    if (!result.nextDirectItemId) {
-      summary.nextDirectItemId = undefined;
-      break;
-    }
-
-    summary.nextDirectItemId = result.nextDirectItemId;
-    nextDirectItemId = result.nextDirectItemId;
+    // 次ページが無ければループ終了。summary.nextDirectItemId は上で既に伝搬済み。
+    if (!result.nextDirectItemId) break;
 
     if (page < maxPages - 1) {
       await sleep(SWEEP_DELAY_MS);
